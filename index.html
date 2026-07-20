@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="독서 습관을 만드는 포인트 기반 도서 대출 앱">
+<meta name="theme-color" content="#4A7BA7">
+
+<!-- [D1] 콘텐츠 보안 정책. Cloudflare Pages 는 _headers 파일이 우선이며,
+     이 meta 는 그 외 호스팅에서의 대비책입니다. (frame-ancestors 는 meta 에서
+     동작하지 않아 _headers/X-Frame-Options 로 처리합니다) -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
+
+<title>독서 통장</title>
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="독서 통장">
+
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/portfolio.css">
+<link rel="stylesheet" href="./css/bookshelf.css">
+</head>
+<body>
+
+<!-- 키보드 사용자용: 탭 한 번으로 본문으로 건너뛰기 -->
+<a href="#mainContent" class="skip-link">본문으로 건너뛰기</a>
+
+<!-- 알림 메시지가 나타나는 영역 -->
+<div id="toastArea" class="toast-area" aria-live="polite" aria-atomic="true"></div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     화면 1: 로그인 / 회원가입
+     ══════════════════════════════════════════════════════════ -->
+<div id="authScreen" class="auth-screen">
+  <main class="auth-card">
+    <div class="auth-logo" aria-hidden="true">📚</div>
+    <h1 class="auth-title">독서 통장</h1>
+    <p class="auth-sub">읽은 만큼 쌓이는 나의 독서 기록</p>
+
+    <div class="tab-group" role="tablist" aria-label="로그인 또는 회원가입">
+      <button class="tab auth-tab active" role="tab" aria-selected="true"
+              data-tab="login" type="button">로그인</button>
+      <button class="tab auth-tab" role="tab" aria-selected="false"
+              data-tab="signup" type="button">회원가입</button>
+    </div>
+
+    <!-- 로그인 -->
+    <form id="loginForm" class="auth-form" autocomplete="on">
+      <div class="field">
+        <label for="loginEmail">이메일</label>
+        <input type="email" id="loginEmail" autocomplete="username"
+               required placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label for="loginPassword">비밀번호</label>
+        <input type="password" id="loginPassword" autocomplete="current-password"
+               required placeholder="비밀번호">
+      </div>
+      <button type="submit" id="loginBtn" class="btn btn-primary btn-block">로그인</button>
+      <button type="button" class="btn-link" data-open="forgotModal">비밀번호를 잊으셨나요?</button>
+    </form>
+
+    <!-- 회원가입 -->
+    <form id="signupForm" class="auth-form hidden" autocomplete="on">
+      <div class="field">
+        <label for="signupNickname">닉네임</label>
+        <input type="text" id="signupNickname" autocomplete="nickname"
+               required minlength="2" maxlength="20" placeholder="2~20자">
+      </div>
+      <div class="field">
+        <label for="signupEmail">이메일</label>
+        <input type="email" id="signupEmail" autocomplete="username"
+               required placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label for="signupPassword">비밀번호</label>
+        <input type="password" id="signupPassword" autocomplete="new-password"
+               required minlength="8" placeholder="영문+숫자 8자 이상">
+        <p class="field-hint">영문과 숫자를 포함해 8자 이상 입력해주세요.</p>
+      </div>
+      <button type="submit" id="signupBtn" class="btn btn-primary btn-block">가입 신청</button>
+      <p class="field-hint center">가입 후 관리자 승인이 필요합니다.</p>
+    </form>
+  </main>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     화면 2: 승인 대기
+     ══════════════════════════════════════════════════════════ -->
+<div id="pendingScreen" class="auth-screen hidden">
+  <main class="auth-card center">
+    <div class="auth-logo" aria-hidden="true">⏳</div>
+    <h1 class="auth-title">승인 대기 중</h1>
+    <p class="auth-sub">
+      <strong id="pendingNick"></strong>님, 가입 신청이 접수되었습니다.<br>
+      관리자가 승인하면 바로 이용하실 수 있습니다.
+    </p>
+    <button class="btn btn-secondary btn-block" data-action="logout" type="button">로그아웃</button>
+  </main>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     화면 3: 앱 본체
+     ══════════════════════════════════════════════════════════ -->
+<div id="appScreen" class="hidden">
+
+  <!-- 상단바 -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-brand">
+        <span aria-hidden="true">📚</span>
+        <span>독서 통장</span>
+      </div>
+      <div class="topbar-right">
+        <div class="balance-chip" title="포인트 잔액">
+          <span id="headerBalance">0</span>원
+        </div>
+        <span id="headerNick" class="topbar-nick"></span>
+        <button class="icon-btn" data-action="theme" type="button"
+                aria-label="밝은 화면과 어두운 화면 전환">🌓</button>
+        <button class="icon-btn" data-action="logout" type="button"
+                aria-label="로그아웃">🚪</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="mainContent">
+
+    <!-- ── 홈 ────────────────────────────────────────────── -->
+    <section id="page-home" class="page active" aria-labelledby="homeTitle">
+      <div class="container">
+        <h1 id="homeTitle" class="page-title">홈</h1>
+
+        <!-- [P3] 반납 임박/연체 알림 배너 -->
+        <div id="reminderBanner"></div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">대출 중</div>
+            <div class="stat-value"><span id="statActiveLoans">0</span><span class="stat-unit">권</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">완독</div>
+            <div class="stat-value"><span id="statTotalReturned">0</span><span class="stat-unit">권</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">잔액</div>
+            <div class="stat-value"><span id="statBalance">0</span><span class="stat-unit">원</span></div>
+          </div>
+          <div class="stat-card stat-card-accent">
+            <div class="stat-label">더 빌릴 수 있어요</div>
+            <div class="stat-value"><span id="statCapacity">0</span><span class="stat-unit">권</span></div>
+          </div>
+        </div>
+
+        <h2 class="section-title">반납이 다가와요</h2>
+        <div id="urgentLoans"></div>
+      </div>
+    </section>
+
+    <!-- ── 책 등록 (대출 신청) ────────────────────────────── -->
+    <section id="page-register" class="page" aria-labelledby="registerTitle">
+      <div class="container">
+        <h1 id="registerTitle" class="page-title">책 등록</h1>
+        <p class="field-hint">빌릴 책의 정보를 직접 입력하고 대출을 신청합니다.</p>
+
+        <form id="registerForm" autocomplete="off" novalidate>
+          <div class="field autocomplete-wrap">
+            <label for="bookTitle">도서명 <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="bookTitle" maxlength="200"
+                   aria-required="true" role="combobox" aria-autocomplete="list"
+                   aria-expanded="false" aria-controls="titleSuggest"
+                   placeholder="예) 데미안">
+            <div id="titleSuggest" class="autocomplete-list hidden" role="listbox"></div>
+          </div>
+          <div class="field">
+            <label for="bookAuthor">작가</label>
+            <input type="text" id="bookAuthor" maxlength="100"
+                   placeholder="예) 헤르만 헤세">
+          </div>
+          <div class="field">
+            <label for="bookPublisher">출판사</label>
+            <input type="text" id="bookPublisher" maxlength="100"
+                   placeholder="예) 민음사">
+          </div>
+          <div class="field">
+            <label for="bookGenre">장르</label>
+            <input type="text" id="bookGenre" maxlength="30" list="genreList"
+                   placeholder="예) 소설">
+            <datalist id="genreList">
+              <option value="소설"></option><option value="에세이"></option>
+              <option value="인문"></option><option value="사회"></option>
+              <option value="과학"></option><option value="경제/경영"></option>
+              <option value="자기계발"></option><option value="역사"></option>
+              <option value="예술"></option><option value="시"></option>
+              <option value="만화"></option><option value="어린이"></option>
+            </datalist>
+          </div>
+          <div class="field">
+            <label for="bookPubDate">출간일</label>
+            <input type="date" id="bookPubDate">
+          </div>
+          <div class="field">
+            <label for="bookPages">페이지 수</label>
+            <input type="number" id="bookPages" min="1" max="10000" inputmode="numeric"
+                   placeholder="예) 240 (모르면 비워두세요)">
+          </div>
+          <div class="field">
+            <label for="bookDesc">줄거리</label>
+            <textarea id="bookDesc" rows="4" maxlength="2000"
+                      placeholder="어떤 내용의 책인가요?"></textarea>
+          </div>
+
+          <h2 class="section-title">대출 정보</h2>
+
+          <div id="loanDepositInfo" class="notice"></div>
+          <div class="field">
+            <label for="loanTargetDate">반납 예정일 <span class="req" aria-hidden="true">*</span></label>
+            <input type="date" id="loanTargetDate" aria-required="true">
+          </div>
+          <div class="field">
+            <label for="loanMemo">메모 (선택)</label>
+            <textarea id="loanMemo" rows="2" maxlength="500"
+                      placeholder="이 책을 읽는 이유나 목표를 적어보세요"></textarea>
+          </div>
+
+          <button type="submit" id="loanSubmitBtn"
+                  class="btn btn-primary btn-block register-submit">대출 신청</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── 내 대출 ────────────────────────────────────────── -->
+    <section id="page-myloans" class="page" aria-labelledby="myloansTitle">
+      <div class="container">
+        <h1 id="myloansTitle" class="page-title">내 대출</h1>
+        <div id="loanList"></div>
+      </div>
+    </section>
+
+    <!-- ── 통장 ──────────────────────────────────────────── -->
+    <section id="page-passbook" class="page" aria-labelledby="passbookTitle">
+      <div class="container">
+        <h1 id="passbookTitle" class="page-title">통장</h1>
+
+        <div class="passbook-header">
+          <div class="passbook-owner" id="passbookOwner"></div>
+          <div class="passbook-balance" id="passbookBalance">0원</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="passbook-table">
+            <caption class="sr-only">포인트 거래 내역</caption>
+            <thead>
+              <tr>
+                <th scope="col">날짜</th>
+                <th scope="col">내용</th>
+                <th scope="col" class="num">금액</th>
+                <th scope="col" class="num">잔액</th>
+              </tr>
+            </thead>
+            <tbody id="passbookBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 포트폴리오 ────────────────────────────────────── -->
+    <section id="page-portfolio" class="page" aria-labelledby="pfTitle">
+      <div class="container">
+        <h1 id="pfTitle" class="page-title">독서 포트폴리오</h1>
+        <div id="pfSummary" class="pf-summary"></div>
+
+        <h2 class="section-title">업적</h2>
+        <div id="pfAchievements" class="pf-achievements"></div>
+
+        <h2 class="section-title">많이 읽은 장르</h2>
+        <div id="pfGenres" class="pf-chart"></div>
+
+        <h2 class="section-title">많이 읽은 저자</h2>
+        <div id="pfAuthors" class="pf-chart"></div>
+
+        <h2 class="section-title">많이 읽은 출판사</h2>
+        <div id="pfPublishers" class="pf-chart"></div>
+
+        <h2 class="section-title">완독한 책</h2>
+        <div id="pfBooks" class="pf-books"></div>
+      </div>
+    </section>
+
+    <!-- ── 서재 ──────────────────────────────────────────── -->
+    <section id="page-bookshelf" class="page" aria-labelledby="bsTitle">
+      <div class="container">
+        <div class="page-head">
+          <h1 id="bsTitle" class="page-title">내 서재</h1>
+          <button class="btn btn-primary btn-sm" data-open-roomform type="button">
+            + 방 추가
+          </button>
+        </div>
+        <div id="bsRooms" class="bs-rooms"></div>
+      </div>
+    </section>
+
+    <!-- ── 설정 ──────────────────────────────────────────── -->
+    <section id="page-settings" class="page" aria-labelledby="setTitle">
+      <div class="container">
+        <h1 id="setTitle" class="page-title">설정</h1>
+
+        <!-- 내 정보 -->
+        <div class="card">
+          <h2 class="card-title">내 정보</h2>
+          <dl class="info-list">
+            <dt>이메일</dt><dd id="setEmail"></dd>
+            <dt>가입일</dt><dd id="setJoined"></dd>
+            <dt>잔액</dt><dd id="setBalance"></dd>
+          </dl>
+        </div>
+
+        <!-- 닉네임 변경 -->
+        <div class="card">
+          <h2 class="card-title">닉네임 변경</h2>
+          <form data-form="nickname">
+            <div class="field">
+              <label for="setNickname">닉네임</label>
+              <input type="text" id="setNickname" minlength="2" maxlength="20" required>
+            </div>
+            <button type="submit" class="btn btn-primary">변경</button>
+          </form>
+        </div>
+
+        <!-- 비밀번호 변경 -->
+        <div class="card">
+          <h2 class="card-title">비밀번호 변경</h2>
+          <form data-form="password" autocomplete="on">
+            <div class="field">
+              <label for="setNewPassword">새 비밀번호</label>
+              <input type="password" id="setNewPassword" autocomplete="new-password"
+                     minlength="8" required placeholder="영문+숫자 8자 이상">
+            </div>
+            <div class="field">
+              <label for="setNewPassword2">새 비밀번호 확인</label>
+              <input type="password" id="setNewPassword2" autocomplete="new-password"
+                     minlength="8" required>
+            </div>
+            <button type="submit" class="btn btn-primary">변경</button>
+          </form>
+        </div>
+
+        <!-- 포인트 규칙 -->
+        <div class="card">
+          <h2 class="card-title">포인트 규칙</h2>
+          <div id="setRules" class="rules-list"></div>
+        </div>
+
+        <!-- 데이터 내보내기 -->
+        <div class="card">
+          <h2 class="card-title">내 데이터 내보내기</h2>
+          <p class="card-desc">
+            독서 기록·통장 내역·서재를 JSON 파일로 내려받습니다.
+          </p>
+          <button class="btn btn-secondary" data-action="export" type="button">
+            내려받기
+          </button>
+        </div>
+
+        <!-- 탈퇴 -->
+        <div class="card card-danger">
+          <h2 class="card-title">회원 탈퇴</h2>
+          <p class="card-desc">
+            탈퇴하면 <strong>모든 독서 기록·포인트·서재가 즉시 삭제</strong>되며
+            복구할 수 없습니다.
+          </p>
+          <button class="btn btn-danger" data-open="deleteAccountModal" type="button">
+            탈퇴하기
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 관리자 ────────────────────────────────────────── -->
+    <section id="page-admin" class="page" aria-labelledby="adminTitle">
+      <div class="container">
+        <h1 id="adminTitle" class="page-title">관리자</h1>
+
+        <div class="tab-group" role="tablist" aria-label="관리자 메뉴">
+          <button class="tab active" role="tab" aria-selected="true"
+                  data-tab="pending" type="button">승인 대기</button>
+          <button class="tab" role="tab" aria-selected="false"
+                  data-tab="members" type="button">회원</button>
+          <button class="tab" role="tab" aria-selected="false"
+                  data-tab="loans" type="button">대출 현황</button>
+        </div>
+
+        <div id="adminContent"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 하단 탭바 -->
+  <nav class="bottom-nav" aria-label="주요 메뉴">
+    <button class="nav-item active" data-page="home" type="button" aria-current="page">
+      <span class="nav-icon" aria-hidden="true">🏠</span><span class="nav-text">홈</span>
+    </button>
+    <button class="nav-item" data-page="register" type="button" aria-current="false">
+      <span class="nav-icon" aria-hidden="true">➕</span><span class="nav-text">등록</span>
+    </button>
+    <button class="nav-item" data-page="myloans" type="button" aria-current="false">
+      <span class="nav-icon" aria-hidden="true">📖</span><span class="nav-text">대출</span>
+    </button>
+    <button class="nav-item" data-page="passbook" type="button" aria-current="false">
+      <span class="nav-icon" aria-hidden="true">💰</span><span class="nav-text">통장</span>
+    </button>
+    <button class="nav-item" data-page="bookshelf" type="button" aria-current="false">
+      <span class="nav-icon" aria-hidden="true">🏛️</span><span class="nav-text">서재</span>
+    </button>
+    <button class="nav-item" data-page="portfolio" type="button" aria-current="false">
+      <span class="nav-icon" aria-hidden="true">📊</span><span class="nav-text">기록</span>
+    </button>
+    <button class="nav-item" data-page="settings" type="button" aria-current="false">
+      <span class="nav-icon" aria-hidden="true">⚙️</span><span class="nav-text">설정</span>
+    </button>
+    <button class="nav-item hidden" data-page="admin" id="adminNavItem" type="button"
+            aria-current="false">
+      <span class="nav-icon" aria-hidden="true">🛡️</span><span class="nav-text">관리</span>
+    </button>
+  </nav>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     모달
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- [X1] 공용 확인 대화상자 (네이티브 confirm/alert 대체) -->
+<div id="confirmModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmBody">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="confirmTitle" class="modal-title">확인</h2>
+      <button class="modal-close" data-close="confirmModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirmBody" class="confirm-text"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" id="confirmCancelBtn" type="button">취소</button>
+      <button class="btn btn-primary" id="confirmOkBtn" type="button">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- [X7] 대출 신청 확인 요약 -->
+<div id="loanConfirmModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loanConfirmTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="loanConfirmTitle" class="modal-title">이 책을 빌릴까요?</h2>
+      <button class="modal-close" data-close="loanConfirmModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="loanConfirmBody"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close="loanConfirmModal" type="button">다시 볼게요</button>
+      <button class="btn btn-primary" id="loanConfirmBtn" type="button">대출 신청</button>
+    </div>
+  </div>
+</div>
+
+<!-- [X8] 첫 방문 온보딩 -->
+<div id="onboardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="onboardTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="onboardTitle" class="modal-title">독서 통장에 오신 걸 환영해요 👋</h2>
+    </div>
+    <div class="modal-body">
+      <div class="onboard-list">
+        <div class="onboard-item">
+          <span class="onboard-emoji" aria-hidden="true">💰</span>
+          <div><b>잔액 = 대출 여력</b><p>지금 가진 포인트로 몇 권까지 빌릴 수 있는지를 뜻해요. 처음엔 가입 보너스가 들어있어요.</p></div>
+        </div>
+        <div class="onboard-item">
+          <span class="onboard-emoji" aria-hidden="true">📖</span>
+          <div><b>빌릴 땐 보증금이 묶여요</b><p>대출하면 보증금이 잠시 빠지고, 반납하면 그대로 돌려받아요. 정시 반납엔 보너스까지!</p></div>
+        </div>
+        <div class="onboard-item">
+          <span class="onboard-emoji" aria-hidden="true">⏰</span>
+          <div><b>늦으면 조금씩 줄어요</b><p>반납일을 넘기면 하루마다 포인트가 깎여요. 대출 여력이 줄어드는 셈이죠.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary btn-block" id="onboardOkBtn" type="button">시작하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 반납 -->
+<div id="returnModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="returnModalTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="returnModalTitle" class="modal-title">반납하기</h2>
+      <button class="modal-close" data-close="returnModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <span class="label-like" id="ratingLabel">별점</span>
+        <div id="returnStars" class="stars" role="group" aria-labelledby="ratingLabel"></div>
+      </div>
+      <div class="field">
+        <label for="returnMemo">감상 메모 (선택)</label>
+        <textarea id="returnMemo" rows="3" maxlength="500"
+                  placeholder="기억에 남는 문장이나 느낌을 남겨보세요"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close="returnModal" type="button">취소</button>
+      <button class="btn btn-primary" id="returnSubmitBtn" type="button">반납</button>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀번호 찾기 -->
+<div id="forgotModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="forgotTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="forgotTitle" class="modal-title">비밀번호 재설정</h2>
+      <button class="modal-close" data-close="forgotModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <form data-form="forgot">
+      <div class="modal-body">
+        <p class="card-desc">가입하신 이메일로 재설정 링크를 보내드립니다.</p>
+        <div class="field">
+          <label for="forgotEmail">이메일</label>
+          <input type="email" id="forgotEmail" required placeholder="you@example.com">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" data-close="forgotModal" type="button">취소</button>
+        <button class="btn btn-primary" type="submit">링크 보내기</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 새 비밀번호 설정 (메일 링크로 진입) -->
+<div id="resetModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="resetTitle" class="modal-title">새 비밀번호 설정</h2>
+    </div>
+    <form data-form="reset">
+      <div class="modal-body">
+        <div class="field">
+          <label for="resetPassword">새 비밀번호</label>
+          <input type="password" id="resetPassword" autocomplete="new-password"
+                 minlength="8" required placeholder="영문+숫자 8자 이상">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-primary btn-block" type="submit">변경하기</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 탈퇴 확인 -->
+<div id="deleteAccountModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="delTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="delTitle" class="modal-title">정말 탈퇴하시겠어요?</h2>
+      <button class="modal-close" data-close="deleteAccountModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="notice notice-danger">
+        모든 독서 기록·포인트·서재가 <strong>즉시 삭제</strong>되며 복구할 수 없습니다.
+      </div>
+      <div class="field">
+        <label for="delConfirm">확인을 위해 <strong>탈퇴합니다</strong>를 입력해주세요</label>
+        <input type="text" id="delConfirm" placeholder="탈퇴합니다" autocomplete="off">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close="deleteAccountModal" type="button">취소</button>
+      <button class="btn btn-danger" data-action="delete-account" type="button">탈퇴하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 포인트 조정 (관리자) -->
+<div id="adjustModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="adjTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="adjTitle" class="modal-title">포인트 조정</h2>
+      <button class="modal-close" data-close="adjustModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="adjUserId">
+      <p class="card-desc">대상: <strong id="adjUserNick"></strong></p>
+      <div class="field">
+        <label for="adjAmount">금액 (음수는 차감)</label>
+        <input type="number" id="adjAmount" placeholder="예: 100 또는 -50">
+      </div>
+      <div class="field">
+        <label for="adjReason">사유</label>
+        <input type="text" id="adjReason" maxlength="200" placeholder="조정 사유">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close="adjustModal" type="button">취소</button>
+      <button class="btn btn-primary" data-action="submit-adjust" type="button">적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- 서재: 방 만들기 -->
+<div id="bsRoomFormModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="bsRoomFormTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="bsRoomFormTitle" class="modal-title">방 만들기</h2>
+      <button class="modal-close" data-close="bsRoomFormModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="bsRoomFee" class="notice"></div>
+      <div class="field">
+        <label for="bsRoomName">방 이름</label>
+        <input type="text" id="bsRoomName" maxlength="30" placeholder="예: 소설">
+      </div>
+      <div class="field">
+        <label for="bsRoomDesc">설명 (선택)</label>
+        <input type="text" id="bsRoomDesc" maxlength="100">
+      </div>
+      <div class="field">
+        <span class="label-like" id="iconLabel">아이콘</span>
+        <div id="bsIconPicker" class="picker" role="radiogroup" aria-labelledby="iconLabel"></div>
+      </div>
+      <div class="field">
+        <span class="label-like" id="colorLabel">색상</span>
+        <div id="bsColorPicker" class="picker" role="radiogroup" aria-labelledby="colorLabel"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close="bsRoomFormModal" type="button">취소</button>
+      <button class="btn btn-primary" data-action="submit-room" type="button">만들기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 서재: 방 내부 (3D 책장) -->
+<div id="bsRoomModal" class="modal modal-full" role="dialog" aria-modal="true" aria-labelledby="bsRoomTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 class="modal-title" id="bsRoomTitle">서재</h2>
+      <div class="modal-head-actions">
+        <button class="btn btn-sm btn-primary" data-action="open-addbook" type="button">+ 책 꽂기</button>
+        <button class="btn btn-sm btn-danger" data-action="delete-room" type="button">방 삭제</button>
+        <button class="modal-close" data-close="bsRoomModal" type="button" aria-label="닫기">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="bsShelfContainer" class="bs-shelf-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 서재: 책 상세 (책등을 누르면 열림) -->
+<div id="bsBookModal" class="modal" role="dialog" aria-modal="true" aria-label="책 정보">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 class="modal-title">책 정보</h2>
+      <button class="modal-close" data-close="bsBookModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 내용은 bookshelf.js 가 채웁니다 (bsRemoveBtn 포함) -->
+      <div id="bsBookDetail"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 서재: 책 꽂기 -->
+<div id="bsAddBookModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="bsAddTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="bsAddTitle" class="modal-title">책 꽂기</h2>
+      <button class="modal-close" data-close="bsAddBookModal" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="card-desc">완독한 책만 꽂을 수 있어요.</p>
+      <div id="bsAddBookList" class="bs-add-book-list"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     스크립트
+     ══════════════════════════════════════════════════════════ -->
+<!-- Supabase 공식 SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<!-- config.js 를 가장 먼저: Supabase 접속 정보 -->
+<script src="./js/config.js"></script>
+
+<script src="./js/app.js"></script>
+<script src="./js/auth.js"></script>
+<script src="./js/books.js"></script>
+<script src="./js/loans.js"></script>
+<script src="./js/portfolio.js"></script>
+<script src="./js/bookshelf.js"></script>
+<script src="./js/settings.js"></script>
+<script src="./js/admin.js"></script>
+<script src="./js/events.js"></script>
+</body>
+</html>

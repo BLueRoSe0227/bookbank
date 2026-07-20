@@ -1,0 +1,14 @@
+# Cloudflare Pages 보안 헤더 (D1)
+# 이 파일은 프로젝트 루트에 그대로 올리면 Pages 가 자동 적용합니다.
+#
+# CSP(콘텐츠 보안 정책): 허용된 출처의 리소스만 실행/연결합니다.
+#   - script-src: 우리 파일(self) + Supabase SDK(cdn.jsdelivr.net)
+#   - connect-src: Supabase REST/Realtime (*.supabase.co, wss)
+#   - style-src 'unsafe-inline': 서재 책등 색상 등 인라인 style 속성을 쓰기 때문
+#   - img-src data:: 생성형 표지(SVG data URI) 사용
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), camera=(), microphone=()

@@ -1,0 +1,796 @@
+/* ═══════════════════════════════════════════════════════════
+   style.css — 독서 통장
+
+   [디자인 개선 반영]
+     1. 명도 대비: 전 색상 WCAG AA(4.5:1) 통과하도록 재설계
+        - 이전 --text-muted 는 2.78:1 로 심각한 미달이었습니다
+        - 이전 --warning 은 2.16:1 (최악), primary 버튼 글씨 3.43:1
+     2. :focus-visible 전역 적용 (이전엔 버튼 55개에 포커스 스타일이 사실상 0개)
+     3. 브랜드 컬러 통일 (#2C5F8A)
+        - 이전엔 앱은 #5B8FBF, manifest·메일은 #1e3a5f 로 서로 달랐습니다
+     + 터치 타겟 최소 44x44px (이전엔 32~40px 다수)
+     + prefers-reduced-motion 대응
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 디자인 토큰 ─────────────────────────────────────────── */
+:root {
+  /* 브랜드 — 단일 소스 */
+  --primary:        #2C5F8A;   /* 흰 글씨 대비 6.75:1 ✅ */
+  --primary-dark:   #1F4664;
+  --primary-light:  #E8F0F7;
+
+  /* 텍스트 — 전부 AA 통과 */
+  --text:           #22303C;   /* 13.03:1 */
+  --text-sub:       #4A5A6A;   /*  6.84:1 */
+  --text-muted:     #5F7183;   /*  4.85:1  ← 기존 2.78:1 에서 수정 */
+  --text-on-primary:#FFFFFF;
+
+  /* 상태색 — 텍스트로 써도 안전한 채도 */
+  --success:        #2F7D51;   /* 5.03:1 */
+  --warning:        #8A5A0B;   /* 5.92:1  ← 기존 2.16:1 에서 수정 */
+  --danger:         #B23B3B;   /* 5.86:1 */
+  --accent:         #A83E56;   /* 6.02:1 */
+
+  /* 상태색 배경 (연한 톤) */
+  --success-bg:     #E7F4EC;
+  --warning-bg:     #FBF1DF;
+  --danger-bg:      #FAEAEA;
+  --primary-bg:     #E8F0F7;
+
+  /* 표면 */
+  --bg:             #FAFBFC;
+  --bg-card:        #FFFFFF;
+  --bg-sunken:      #F1F4F7;
+  --border:         #DDE3EA;
+  --border-strong:  #C3CCD6;
+
+  /* 형태 */
+  --radius:         12px;
+  --radius-sm:      8px;
+  --radius-lg:      18px;
+  --shadow:         0 1px 3px rgba(16,32,48,.08), 0 1px 2px rgba(16,32,48,.04);
+  --shadow-md:      0 4px 12px rgba(16,32,48,.10);
+  --shadow-lg:      0 12px 32px rgba(16,32,48,.16);
+
+  /* 동작 */
+  --transition:     .18s ease;
+
+  /* 최소 터치 영역 */
+  --touch:          44px;
+}
+
+[data-theme="dark"] {
+  --primary:        #7FB3DB;   /* 어두운 배경 위에서 대비 확보 */
+  --primary-dark:   #A9CDE8;
+  --primary-light:  #1B2C3C;
+
+  --text:           #E8EDF2;
+  --text-sub:       #B4C0CC;
+  --text-muted:     #93A2B1;
+  --text-on-primary:#0E1620;
+
+  --success:        #6FCB93;
+  --warning:        #E4B563;
+  --danger:         #EC8080;
+  --accent:         #E88CA2;
+
+  --success-bg:     #16301F;
+  --warning-bg:     #33260E;
+  --danger-bg:      #331A1A;
+  --primary-bg:     #16283A;
+
+  --bg:             #0E1620;
+  --bg-card:        #17222E;
+  --bg-sunken:      #101A24;
+  --border:         #2B3947;
+  --border-strong:  #3E4E5F;
+
+  --shadow:         0 1px 3px rgba(0,0,0,.4);
+  --shadow-md:      0 4px 12px rgba(0,0,0,.5);
+  --shadow-lg:      0 12px 32px rgba(0,0,0,.6);
+}
+
+/* ── 기본 ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+               "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; line-height: 1.35; }
+p { margin: 0; }
+
+/* ── 접근성: 포커스 표시 ─────────────────────────────────
+   [디자인2] 이전 버전은 버튼이 55개인데 :focus-visible 이 0개,
+   :focus 스타일도 1개뿐이라 키보드로 탐색하면 현재 위치가 안 보였습니다. */
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+/* 마우스 클릭 시엔 링을 숨김 (키보드 사용자에게만 표시) */
+:focus:not(:focus-visible) { outline: none; }
+
+/* 스크린리더 전용 */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 본문 바로가기 — 탭 한 번으로 메뉴를 건너뜁니다 */
+.skip-link {
+  position: absolute; top: -60px; left: 12px; z-index: 999;
+  padding: 12px 20px;
+  background: var(--primary); color: var(--text-on-primary);
+  border-radius: var(--radius-sm); text-decoration: none; font-weight: 600;
+  transition: top var(--transition);
+}
+.skip-link:focus { top: 12px; }
+
+.hidden { display: none !important; }
+
+/* ── 레이아웃 ────────────────────────────────────────────── */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 16px calc(80px + env(safe-area-inset-bottom));
+}
+
+.page { display: none; }
+.page.active { display: block; animation: fade .2s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 18px; }
+.page-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px; gap: 12px;
+}
+.page-head .page-title { margin-bottom: 0; }
+.section-title {
+  font-size: 15px; font-weight: 700; color: var(--text-sub);
+  margin: 26px 0 12px;
+}
+
+/* ── 상단바 ──────────────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top);
+}
+.topbar-inner {
+  max-width: 720px; margin: 0 auto;
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.topbar-brand { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-nick { font-size: 13px; color: var(--text-sub); max-width: 100px;
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.balance-chip {
+  background: var(--primary-bg); color: var(--primary);
+  font-weight: 700; font-size: 13px;
+  padding: 6px 12px; border-radius: 999px;
+}
+
+.icon-btn {
+  min-width: var(--touch); min-height: var(--touch);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; border-radius: var(--radius-sm);
+  color: var(--text);
+  transition: background var(--transition);
+}
+.icon-btn:hover { background: var(--bg-sunken); }
+
+/* ── 하단 탭바 ───────────────────────────────────────────── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+  display: flex;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-item {
+  flex: 1;
+  min-height: var(--touch);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 8px 2px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 10px; font-weight: 600;
+  transition: color var(--transition);
+}
+.nav-item.active { color: var(--primary); }
+.nav-icon { font-size: 18px; line-height: 1; }
+
+/* ── 버튼 ────────────────────────────────────────────────── */
+.btn {
+  min-height: var(--touch);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 18px;
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition);
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-block { width: 100%; }
+.btn-sm { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+
+.btn-primary   { background: var(--primary); color: var(--text-on-primary); }
+.btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+
+.btn-secondary { background: var(--bg-sunken); color: var(--text); border-color: var(--border); }
+.btn-secondary:hover:not(:disabled) { background: var(--border); }
+
+.btn-danger    { background: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { filter: brightness(.92); }
+
+.btn-ghost     { background: none; color: var(--text-sub); border-color: var(--border); }
+
+.btn-link {
+  min-height: var(--touch);
+  background: none; border: none; cursor: pointer;
+  color: var(--primary); font-size: 13px; font-family: inherit;
+  text-decoration: underline; padding: 8px;
+}
+
+/* ── 폼 ──────────────────────────────────────────────────── */
+.field { margin-bottom: 14px; }
+.field label, .label-like {
+  display: block; margin-bottom: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text-sub);
+}
+.field input, .field textarea, .field select {
+  width: 100%;
+  min-height: var(--touch);
+  padding: 10px 12px;
+  font-size: 15px; font-family: inherit;
+  color: var(--text); background: var(--bg-card);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  transition: border-color var(--transition);
+}
+.field textarea { min-height: 72px; resize: vertical; }
+.field input:focus, .field textarea:focus { border-color: var(--primary); }
+.field input::placeholder, .field textarea::placeholder { color: var(--text-muted); }
+
+.field-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+.field-hint.center { text-align: center; }
+
+/* ── 탭 ──────────────────────────────────────────────────── */
+.tab-group {
+  display: flex; gap: 4px;
+  background: var(--bg-sunken);
+  padding: 4px; border-radius: var(--radius-sm);
+  margin-bottom: 18px;
+}
+.tab {
+  flex: 1;
+  min-height: 40px;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+}
+.tab.active { background: var(--bg-card); color: var(--primary); box-shadow: var(--shadow); }
+
+/* ── 카드 ────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.card-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.card-desc  { font-size: 13px; color: var(--text-sub); margin-bottom: 12px; }
+.card-danger { border-color: var(--danger); }
+.card-danger .card-title { color: var(--danger); }
+
+/* ── 통계 카드 ───────────────────────────────────────────── */
+.stat-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+  margin-bottom: 8px;
+}
+@media (min-width: 560px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: center;
+}
+.stat-card-accent { background: var(--primary-bg); border-color: var(--primary); }
+.stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.stat-value { font-size: 24px; font-weight: 700; color: var(--primary); }
+.stat-unit  { font-size: 13px; font-weight: 600; margin-left: 2px; color: var(--text-sub); }
+
+/* ── 인증 화면 ───────────────────────────────────────────── */
+.auth-screen {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+.auth-card {
+  width: 100%; max-width: 400px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  box-shadow: var(--shadow-lg);
+}
+.auth-card.center { text-align: center; }
+.auth-logo  { font-size: 44px; text-align: center; margin-bottom: 8px; }
+.auth-title { font-size: 22px; font-weight: 700; text-align: center; }
+.auth-sub   { font-size: 13px; color: var(--text-sub); text-align: center; margin: 6px 0 22px; }
+.auth-form  { display: block; }
+
+/* ── 알림 배너 ───────────────────────────────────────────── */
+.notice {
+  background: var(--primary-bg);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.notice-danger  { background: var(--danger-bg);  border-left-color: var(--danger); }
+.notice-warning { background: var(--warning-bg); border-left-color: var(--warning); }
+
+/* ── 토스트 ──────────────────────────────────────────────── */
+.toast-area {
+  position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex; flex-direction: column; gap: 8px;
+  width: calc(100% - 32px); max-width: 380px;
+  pointer-events: none;
+}
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 500;
+  background: var(--text); color: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(-10px);
+  transition: opacity var(--transition), transform var(--transition);
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast-success { background: var(--success); color: #fff; }
+.toast-error   { background: var(--danger);  color: #fff; }
+
+/* ── 모달 ────────────────────────────────────────────────── */
+.modal {
+  position: fixed; inset: 0; z-index: 150;
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 16px;
+  background: rgba(10, 20, 30, .55);
+  backdrop-filter: blur(2px);
+}
+.modal.active { display: flex; }
+.modal-box {
+  width: 100%; max-width: 460px;
+  max-height: 90vh; overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: pop .18s ease;
+}
+.modal-full .modal-box { max-width: 860px; }
+@keyframes pop { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head-actions { display: flex; align-items: center; gap: 6px; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-body  { padding: 18px; }
+.modal-foot  {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}
+.modal-foot .btn { flex: 1; }
+
+.modal-close {
+  /* 터치 타겟 44px 확보 (이전엔 32x32px) */
+  min-width: var(--touch); min-height: var(--touch);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; color: var(--text-muted);
+  border-radius: var(--radius-sm);
+}
+.modal-close:hover { background: var(--bg-sunken); color: var(--text); }
+
+/* ── 검색 ────────────────────────────────────────────────── */
+.search-bar { display: flex; gap: 8px; margin-bottom: 18px; }
+.search-bar input {
+  flex: 1; min-height: var(--touch);
+  padding: 10px 12px; font-size: 15px; font-family: inherit;
+  color: var(--text); background: var(--bg-card);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.search-bar input:focus { border-color: var(--primary); }
+
+.book-grid { display: flex; flex-direction: column; gap: 10px; }
+
+.book-item {
+  display: flex; gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.book-item:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
+.book-cover {
+  width: 56px; height: 78px; flex-shrink: 0;
+  object-fit: cover; border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.book-info { min-width: 0; flex: 1; }
+.book-title  { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.book-meta   { font-size: 12px; color: var(--text-muted); }
+
+/* ── 대출 목록 ───────────────────────────────────────────── */
+.loan-item {
+  display: flex; gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.loan-info { flex: 1; min-width: 0; }
+.loan-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 11px; font-weight: 700;
+  border-radius: 999px;
+}
+.badge-ok      { background: var(--success-bg); color: var(--success); }
+.badge-warn    { background: var(--warning-bg); color: var(--warning); }
+.badge-danger  { background: var(--danger-bg);  color: var(--danger); }
+.badge-neutral { background: var(--bg-sunken);  color: var(--text-sub); }
+
+/* ── 통장 ────────────────────────────────────────────────── */
+.passbook-header {
+  background: var(--primary); color: var(--text-on-primary);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.passbook-owner   { font-size: 13px; opacity: .9; }
+.passbook-balance { font-size: 30px; font-weight: 700; margin-top: 4px; }
+
+.table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+.passbook-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.passbook-table th {
+  background: var(--bg-sunken);
+  padding: 10px 12px; text-align: left;
+  font-weight: 700; color: var(--text-sub);
+  white-space: nowrap;
+}
+.passbook-table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+.passbook-table .num { text-align: right; }
+.amount-plus  { color: var(--success); font-weight: 700; }
+.amount-minus { color: var(--danger);  font-weight: 700; }
+
+/* ── 설정: 정보 목록 ─────────────────────────────────────── */
+.info-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
+.info-list dt { font-size: 13px; color: var(--text-muted); }
+.info-list dd { margin: 0; font-size: 13px; font-weight: 600; text-align: right; }
+
+.rules-list { display: flex; flex-direction: column; gap: 8px; }
+.rule-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rule-row:last-child { border-bottom: none; }
+.rule-label { color: var(--text-sub); }
+.rule-value { font-weight: 700; }
+
+/* ── 별점 ────────────────────────────────────────────────── */
+.stars { display: flex; gap: 4px; }
+.star {
+  min-width: var(--touch); min-height: var(--touch);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  font-size: 26px; line-height: 1;
+  color: var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), transform var(--transition);
+}
+.star.on { color: #E8A33D; }
+.star:hover { transform: scale(1.12); }
+
+/* ── 선택기 (아이콘/색상) ────────────────────────────────── */
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.picker-item {
+  /* 터치 타겟 44px (이전엔 32x32px) */
+  min-width: var(--touch); min-height: var(--touch);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer; font-size: 20px;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.picker-item.selected { border-color: var(--primary); transform: scale(1.06); }
+.picker-color { border-radius: 50%; }
+
+/* ── 로딩 ────────────────────────────────────────────────── */
+.loading-wrap { display: flex; justify-content: center; padding: 32px; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 빈 상태 ─────────────────────────────────────────────── */
+.empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+}
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+.empty-text { font-size: 14px; }
+
+/* ── 모션 민감 사용자 배려 ───────────────────────────────
+   [디자인5] 이전 버전엔 이 대응이 아예 없었고, 서재는 3D 회전 애니메이션을
+   씁니다. 전정기능에 민감한 분들께는 어지럼증을 유발할 수 있습니다. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   JS가 그려내는 요소들
+   (js/*.js 의 템플릿과 클래스명이 1:1로 맞아야 합니다)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 배지 (연체 상태) ────────────────────────────────────── */
+.badge-info    { background: var(--primary-bg); color: var(--primary); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-danger  { background: var(--danger-bg);  color: var(--danger); }
+
+/* ── 홈: 반납 임박 카드 ──────────────────────────────────── */
+.loan-cards { display: flex; flex-direction: column; gap: 8px; }
+.loan-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.loan-card-info    { border-left-color: var(--primary); }
+.loan-card-warning { border-left-color: var(--warning); }
+.loan-card-danger  { border-left-color: var(--danger); }
+.loan-card-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.loan-card-meta  { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+
+/* ── 대출 목록 ───────────────────────────────────────────── */
+.loan-body   { flex: 1; min-width: 0; }
+.loan-title  { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+.loan-author { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+.loan-meta   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+.loan-rating { color: #E8A33D; font-size: 13px; }
+
+.loan-cover {
+  width: 56px; height: 78px; flex-shrink: 0;
+  object-fit: cover; border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.loan-cover-placeholder,
+.book-cover-placeholder {
+  width: 56px; height: 78px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken); color: var(--text-muted);
+}
+
+/* ── 도서 정보 ───────────────────────────────────────────── */
+.book-author    { font-size: 12px; color: var(--text-muted); }
+.book-publisher { font-size: 11px; color: var(--text-muted); }
+
+/* ── 대출 모달: 미리보기 ─────────────────────────────────── */
+.loan-preview { display: flex; gap: 12px; margin-bottom: 14px; }
+.loan-preview-cover {
+  width: 64px; height: 90px; flex-shrink: 0;
+  object-fit: cover; border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.loan-preview-cover-placeholder {
+  width: 64px; height: 90px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken); color: var(--text-muted);
+}
+
+/* ── 보증금 안내 상자 ────────────────────────────────────── */
+.deposit-box {
+  background: var(--primary-bg);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.deposit-box-warn { background: var(--danger-bg); border-color: var(--danger); }
+.deposit-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px;
+}
+.deposit-row-sub {
+  font-size: 12px; color: var(--text-sub);
+  margin-top: 4px; padding-top: 6px;
+  border-top: 1px dashed var(--border-strong);
+}
+.deposit-warn { color: var(--danger); font-weight: 700; margin-top: 6px; }
+
+/* ── 통장 표 셀 ──────────────────────────────────────────── */
+.td-date    { color: var(--text-muted); white-space: nowrap; font-size: 12px; }
+.td-desc    { min-width: 120px; }
+.td-amount  { text-align: right; white-space: nowrap; font-weight: 700; }
+.td-balance { text-align: right; white-space: nowrap; color: var(--text-sub); }
+.empty-cell { text-align: center; color: var(--text-muted); padding: 32px 12px; }
+.empty-msg  { text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px; }
+
+/* ── 설정: 규칙 목록 ─────────────────────────────────────── */
+.rule-icon { margin-right: 6px; }
+.rule-name { color: var(--text-sub); }
+
+/* ── 관리자 목록 ─────────────────────────────────────────── */
+.admin-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.admin-row-info { min-width: 0; flex: 1; font-size: 14px; font-weight: 600; }
+.admin-row-sub  { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+.admin-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════════════════
+   [전체 개선 반영] 아래는 이번 리뷰 30항목 대응으로 추가된 스타일
+   ═══════════════════════════════════════════════════════════ */
+
+/* [X9] 네이티브 폼 컨트롤(date·number 스피너 등)을 테마에 맞춤 */
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+/* [X5] 필수 필드 표시 */
+.req { color: var(--danger); margin-left: 2px; }
+
+/* [X3] 폼 인라인 오류 (사라지는 토스트 대신 필드 옆에 고정) */
+.field-error {
+  font-size: 12px; color: var(--danger); font-weight: 600;
+  margin-top: 5px; display: flex; align-items: center; gap: 4px;
+}
+.field.has-error input,
+.field.has-error textarea { border-color: var(--danger); }
+
+/* [X4] 등록 폼 제출 버튼: 하단 고정 네비와 겹치지 않게 여백 */
+.register-submit { margin-top: 8px; }
+
+/* [X2] 생성형 표지 — 표지 이미지가 없어도 책마다 다르게 보이도록.
+   제목 해시로 색을 정하고 첫 글자를 얹습니다. (bookshelf 의 색 은유와 통일) */
+.gen-cover {
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  overflow: hidden; position: relative;
+  color: #fff; font-weight: 800;
+  background: var(--bg-sunken);
+}
+.gen-cover span {
+  padding: 6px 8px; line-height: 1.1;
+  font-size: 18px; letter-spacing: -.02em;
+  text-shadow: 0 1px 2px rgba(0,0,0,.4);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.gen-cover::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(255,255,255,.18), rgba(0,0,0,.12));
+}
+
+/* [X1] 공용 확인 대화상자 (네이티브 confirm/alert 대체) */
+.confirm-text { font-size: 14px; color: var(--text); line-height: 1.6; }
+.confirm-text strong { font-weight: 700; }
+
+/* [X7] 대출 확인 요약 */
+.loan-confirm-book { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.loan-confirm-sub  { font-size: 13px; color: var(--text-sub); margin-bottom: 12px; }
+.loan-confirm-row  { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+
+/* [X8] 첫 방문 온보딩 */
+.onboard-list { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 4px; }
+.onboard-item { display: flex; gap: 12px; align-items: flex-start; }
+.onboard-emoji { font-size: 24px; line-height: 1.2; flex-shrink: 0; }
+.onboard-item b { display: block; font-size: 14px; margin-bottom: 2px; }
+.onboard-item p { font-size: 13px; color: var(--text-sub); }
+
+/* [P1] 도서명 자동완성 목록 */
+.autocomplete-wrap { position: relative; }
+.autocomplete-list {
+  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+  max-height: 220px; overflow-y: auto;
+}
+.autocomplete-item {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 12px; background: none; border: none; cursor: pointer;
+  font-size: 14px; font-family: inherit; color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover, .autocomplete-item:focus-visible { background: var(--bg-sunken); }
+.autocomplete-item small { color: var(--text-muted); margin-left: 6px; }
+
+/* [P3] 알림 배너 (홈 상단) */
+.reminder-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--warning-bg); border: 1px solid var(--warning);
+  border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px;
+  font-size: 13px; color: var(--text);
+}
+.reminder-banner .reminder-icon { font-size: 18px; flex-shrink: 0; }
+.reminder-banner .reminder-body { flex: 1; min-width: 0; }
+.reminder-banner button {
+  flex-shrink: 0; min-height: 32px; padding: 4px 10px;
+  background: none; border: 1px solid var(--warning); color: var(--warning);
+  border-radius: var(--radius-sm); font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+
+/* [D6] 서버 연결 실패 안내 */
+.conn-error {
+  text-align: center; padding: 40px 20px; color: var(--text-sub);
+}
+.conn-error .conn-icon { font-size: 36px; margin-bottom: 10px; }
+.conn-error button { margin-top: 14px; }
+
+/* [X6] 별점 버튼 — 키보드 접근성 (기본 .star 스타일 위에 상태만 보강) */
+.star[aria-checked="true"] { color: #E8A33D; }

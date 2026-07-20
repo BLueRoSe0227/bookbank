@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/

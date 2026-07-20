@@ -1,0 +1,141 @@
+/* ═══════════════════════════════════════════════════════════
+   portfolio.css — 독서 포트폴리오
+
+   색상은 전부 style.css 의 토큰을 씁니다.
+   하드코딩된 색이 없어야 다크모드가 자동으로 따라옵니다.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 요약 카드 ───────────────────────────────────────────── */
+.pf-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 8px;
+}
+@media (min-width: 560px) {
+  .pf-summary { grid-template-columns: repeat(4, 1fr); }
+}
+
+.pf-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 12px;
+  text-align: center;
+}
+.pf-summary-icon  { font-size: 22px; margin-bottom: 4px; }
+.pf-summary-num   { font-size: 22px; font-weight: 700; color: var(--primary); }
+.pf-summary-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── 업적 ────────────────────────────────────────────────── */
+.pf-achievements {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (min-width: 560px) {
+  .pf-achievements { grid-template-columns: repeat(4, 1fr); }
+}
+
+.pf-achievement {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  text-align: center;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.pf-achievement.earned {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+.pf-achievement.locked { opacity: .45; }
+
+.pf-achievement-icon { font-size: 26px; line-height: 1; margin-bottom: 6px; }
+.pf-achievement-name { font-size: 12px; font-weight: 700; }
+.pf-achievement-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── 막대 그래프 ─────────────────────────────────────────── */
+.pf-chart {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.pf-bar-list { display: flex; flex-direction: column; gap: 12px; }
+
+.pf-bar-item { display: block; }
+.pf-bar-label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+.pf-bar-name {
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+.pf-bar-count {
+  flex-shrink: 0;
+  font-size: 12px; font-weight: 700;
+  color: var(--text-muted);
+}
+
+.pf-bar-track {
+  height: 8px;
+  background: var(--bg-sunken);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pf-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+
+/* ── 완독 책 목록 ────────────────────────────────────────── */
+.pf-books {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 12px;
+}
+
+.pf-book-item { text-align: center; }
+
+.pf-book-cover {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  box-shadow: var(--shadow);
+}
+.pf-book-cover-placeholder {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  box-shadow: var(--shadow);
+}
+
+.pf-book-title {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 6px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pf-book-rating {
+  font-size: 11px;
+  color: #E8A33D;
+  margin-top: 2px;
+}

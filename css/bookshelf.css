@@ -1,0 +1,254 @@
+/* ═══════════════════════════════════════════════════════════
+   bookshelf.css — 3D 서재
+
+   [디자인 개선]
+     - 선반 나무색을 토큰화 (--shelf-wood). 이전엔 하드코딩이라
+       다크모드에서 따로 관리해야 했습니다.
+     - prefers-reduced-motion 대응 (3D 회전은 어지럼증을 유발할 수 있습니다)
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --shelf-wood:      #C9AC8C;
+  --shelf-wood-dark: #A8825C;
+  --shelf-back:      #8A6A4A;
+  --shelf-shadow:    rgba(60, 40, 20, .3);
+}
+[data-theme="dark"] {
+  --shelf-wood:      #6B563F;
+  --shelf-wood-dark: #4E3E2C;
+  --shelf-back:      #3A2E22;
+  --shelf-shadow:    rgba(0, 0, 0, .5);
+}
+
+/* ── 방 목록 ─────────────────────────────────────────────── */
+.bs-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.bs-room-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 14px;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.bs-room-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.bs-room-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bs-room-icon {
+  width: var(--touch); height: var(--touch);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.bs-room-info  { min-width: 0; flex: 1; font-size: 14px; font-weight: 700; }
+.bs-room-count { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+
+/* ── 방 카드 안 미니 책장 ────────────────────────────────── */
+.bs-mini-shelf {
+  background: var(--shelf-back);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.bs-mini-shelf-floor {
+  display: flex; align-items: flex-end; gap: 2px;
+  min-height: 26px;
+  padding-bottom: 3px;
+  border-bottom: 3px solid var(--shelf-wood);
+  border-radius: 2px;
+}
+.bs-mini-book {
+  width: 5px;
+  border-radius: 1px 1px 0 0;
+  background: var(--primary);
+}
+
+/* ── 3D 책장 ─────────────────────────────────────────────── */
+.bs-shelf-container {
+  perspective: 1400px;
+  padding: 8px 0 16px;
+}
+
+.bs-shelf {
+  background: linear-gradient(to bottom, var(--shelf-wood), var(--shelf-wood-dark));
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: inset 0 2px 12px var(--shelf-shadow), var(--shadow-md);
+  transform: rotateX(3deg);
+  transform-style: preserve-3d;
+}
+
+.bs-shelf-floor {
+  background: var(--shelf-back);
+  border-radius: 4px;
+  margin-bottom: 12px;
+  padding: 10px 8px 0;
+  box-shadow: inset 0 4px 10px var(--shelf-shadow);
+}
+.bs-shelf-floor:last-child { margin-bottom: 0; }
+
+.bs-shelf-books {
+  display: flex; align-items: flex-end; gap: 3px;
+  min-height: 108px;
+  padding-bottom: 8px;
+  border-bottom: 8px solid var(--shelf-wood);
+  border-radius: 0 0 3px 3px;
+  overflow-x: auto;
+}
+
+.bs-empty-shelf {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+  min-height: 100px;
+  color: rgba(255, 255, 255, .55);
+  font-size: 12px;
+}
+
+/* ── 책 한 권 (책등) ─────────────────────────────────────── */
+.bs-book {
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  background: none;
+  transition: transform var(--transition);
+}
+.bs-book:hover { transform: translateY(-8px); }
+
+.bs-book-spine {
+  width: 26px;
+  border-radius: 2px 2px 0 0;
+  box-shadow: 2px 0 4px var(--shelf-shadow), inset -3px 0 6px rgba(0,0,0,.2);
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px 2px;
+}
+.bs-book-title-spine {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+  white-space: nowrap;
+  overflow: hidden;
+  max-height: 100%;
+}
+
+/* ── 책 위 툴팁 ──────────────────────────────────────────── */
+.bs-book-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  min-width: 130px; max-width: 190px;
+  padding: 8px 10px;
+  background: var(--text);
+  color: var(--bg-card);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition);
+}
+.bs-book:hover .bs-book-tooltip,
+.bs-book:focus-visible .bs-book-tooltip { opacity: 1; }
+
+.bs-book-tooltip-title { font-size: 12px; font-weight: 700; }
+.bs-book-tooltip-meta  { font-size: 11px; opacity: .8; margin-top: 2px; }
+
+/* ── 책 상세 ─────────────────────────────────────────────── */
+.bs-book-detail {
+  display: flex; gap: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.bs-book-detail-cover {
+  width: 68px; height: 96px; flex-shrink: 0;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.bs-book-detail-cover-placeholder {
+  width: 68px; height: 96px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+}
+
+.bs-book-detail-info   { flex: 1; min-width: 0; }
+.bs-book-detail-title  { font-size: 15px; font-weight: 700; }
+.bs-book-detail-author { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.bs-book-detail-meta   { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+.bs-book-detail-rating { color: #E8A33D; font-size: 14px; margin-top: 4px; }
+.bs-book-detail-note {
+  font-size: 13px;
+  color: var(--text-sub);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+/* ── 아이콘 / 색상 선택기 ────────────────────────────────── */
+.bs-icon-option,
+.bs-color-option {
+  /* 터치 타겟 44px (이전엔 40px / 32px) */
+  min-width: var(--touch); min-height: var(--touch);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 20px;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.bs-color-option { border-radius: 50%; }
+.bs-icon-option.selected,
+.bs-color-option.selected { border-color: var(--primary); transform: scale(1.08); }
+
+/* ── 책 꽂기 목록 ────────────────────────────────────────── */
+.bs-add-book-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 50vh; overflow-y: auto;
+}
+.bs-add-book-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+.bs-add-book-item:hover { border-color: var(--primary); }
+
+.bs-add-book-cover {
+  width: 40px; height: 56px; flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+}
+.bs-add-book-info { min-width: 0; flex: 1; font-size: 13px; font-weight: 600; }
+
+/* ── 모션 민감 사용자 ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .bs-shelf { transform: none; }
+  .bs-book:hover { transform: none; }
+  .bs-room-card:hover { transform: none; }
+}

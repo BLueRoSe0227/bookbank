@@ -1,0 +1,28 @@
+{
+  "root": true,
+  "env": { "browser": true, "es2022": true, "serviceworker": true },
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
+  "extends": "eslint:recommended",
+  "globals": {
+    "supabase": "readonly",
+    "db": "readonly",
+    "SUPABASE_URL": "readonly",
+    "SUPABASE_ANON_KEY": "readonly",
+    "App": "readonly",
+    "Auth": "readonly",
+    "Books": "readonly",
+    "Loans": "readonly",
+    "Admin": "readonly",
+    "Settings": "readonly",
+    "Bookshelf": "readonly",
+    "Portfolio": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-console": "off",
+    "eqeqeq": ["warn", "smart"],
+    "prefer-const": "warn",
+    "no-redeclare": "off"
+  }
+}
