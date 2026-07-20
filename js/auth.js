@@ -55,6 +55,10 @@ const Auth = (() => {
         return App.showToast(App.errMsg(error), 'error');
       }
       await App.boot();
+    } catch (e) {
+      // signInWithPassword 가 {error} 대신 예외를 던지는 경우(네트워크 끊김 등).
+      // catch 가 없으면 버튼만 원상복구되고 아무 안내 없이 조용히 실패합니다.
+      App.showToast(App.errMsg(e), 'error');
     } finally {
       btn.disabled = false; btn.textContent = '로그인';
     }
@@ -91,6 +95,8 @@ const Auth = (() => {
       }
       App.showToast('가입 신청 완료! 관리자 승인 후 이용할 수 있습니다.', 'success');
       switchTab('login');
+    } catch (e) {
+      App.showToast(App.errMsg(e), 'error');
     } finally {
       btn.disabled = false; btn.textContent = '가입 신청';
     }

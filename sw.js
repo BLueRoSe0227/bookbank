@@ -14,7 +14,8 @@
 //    v2: 도서 검색 API 제거 → 책 직접 등록
 //    v3: 책 꽂기 버튼 추가, SDK 버전 고정, 장르 <select> 전환
 //    v4: 접근성(포커스 트랩·ARIA), 로딩/빈 상태 통일, 관리자 통계 탭
-const CACHE = 'library-bank-v4';
+//    v5: 로그인/가입에서 예외(네트워크 오류 등) 시 무반응이던 버그 수정
+const CACHE = 'library-bank-v5';
 
 const ASSETS = [
   './',
