@@ -9,11 +9,16 @@ const Bookshelf = (() => {
   const _spineColor = (title) => {
     let h = 0;
     for (const c of String(title)) h = (h * 31 + c.charCodeAt(0)) % 360;
-    return `hsl(${h}, 45%, 42%)`;
+    // 노랑~연두 구간은 같은 명도라도 밝게 보여 흰 글자가 안 읽힙니다.
+    // (app.js 의 생성형 표지와 같은 보정)
+    const l = (h >= 40 && h <= 170) ? 33 : 42;
+    return `hsl(${h}, 45%, ${l}%)`;
   };
   const _spineWidth = (pages) => Math.max(18, Math.min(46, Math.round((pages || 300) / 12)));
 
   const load = async () => {
+    App.showLoading('#bsRooms');
+
     const p = App.getProfile();
     const { data: rooms } = await db.from('bookshelf_rooms')
       .select('id,name,description,icon,color,bookshelf_books(id,books(title,total_pages))')
@@ -21,7 +26,8 @@ const Bookshelf = (() => {
 
     const el = App.$('#bsRooms');
     if (!rooms?.length) {
-      el.innerHTML = '<p class="empty-msg">아직 서재 방이 없습니다. 방을 만들어 완독한 책을 꽂아보세요!</p>';
+      el.innerHTML = App.emptyState('🏠',
+        '아직 서재 방이 없습니다. 방을 만들어 완독한 책을 꽂아보세요.');
       return;
     }
     el.innerHTML = rooms.map(r => {
@@ -71,15 +77,13 @@ const Bookshelf = (() => {
 
     const shelf = App.$('#bsShelfContainer');
     if (!books?.length) {
-      shelf.innerHTML = '<p class="empty-msg">이 방은 비어 있습니다.</p>';
+      shelf.innerHTML = App.emptyState('📗', '이 방은 비어 있습니다. 완독한 책을 꽂아보세요.');
     } else {
-      // 한 선반에 8권씩
-      const rows = [];
-      for (let i = 0; i < books.length; i += 8) rows.push(books.slice(i, i + 8));
-      shelf.innerHTML = rows.map(row => `
+      // 선반은 하나. 책이 많으면 CSS 가 알아서 줄바꿈합니다. (예전엔 8권씩 잘랐습니다)
+      shelf.innerHTML = `
         <div class="bs-shelf">
           <div class="bs-shelf-books">
-            ${row.map(b => App.h`
+            ${books.map(b => App.h`
               <div class="bs-book" data-book="${b.id}" role="button" tabindex="0"
                    aria-label="${b.books.title} 상세">
                 <div class="bs-book-spine"
@@ -95,7 +99,7 @@ const Bookshelf = (() => {
               </div>`).join('')}
           </div>
           <div class="bs-shelf-floor"></div>
-        </div>`).join('');
+        </div>`;
 
       shelf.querySelectorAll('[data-book]').forEach(el => {
         const open = () => showDetail(books.find(b => b.id === Number(el.dataset.book)));
@@ -137,35 +141,58 @@ const Bookshelf = (() => {
     App.$('#bsRoomDesc').value = '';
     _color = COLORS[0]; _icon = ICONS[0];
 
+    // 부모가 role="radiogroup" 이므로 각 버튼은 role="radio" + aria-checked 를
+    // 가져야 합니다. .selected 클래스만으로는 보조기기에 선택 상태가 전달되지 않습니다.
     App.$('#bsColorPicker').innerHTML = COLORS.map((c, i) => App.h`
       <button type="button" class="bs-color-option ${App.raw(i===0?'selected':'')}"
+              role="radio" aria-checked="${App.raw(i===0?'true':'false')}"
+              tabindex="${App.raw(i===0?'0':'-1')}"
               data-color="${c}" style="background:${App.raw(c)}"
               aria-label="색상 ${App.raw(i+1)}"></button>`).join('');
     App.$('#bsIconPicker').innerHTML = ICONS.map((ic, i) => App.h`
       <button type="button" class="bs-icon-option ${App.raw(i===0?'selected':'')}"
+              role="radio" aria-checked="${App.raw(i===0?'true':'false')}"
+              tabindex="${App.raw(i===0?'0':'-1')}"
               data-icon="${ic}" aria-label="아이콘 ${ic}">${ic}</button>`).join('');
 
-    App.$$('#bsColorPicker .bs-color-option').forEach(b =>
-      b.addEventListener('click', () => {
-        _color = b.dataset.color;
-        App.$$('#bsColorPicker .bs-color-option').forEach(x => x.classList.remove('selected'));
-        b.classList.add('selected');
-      }));
-    App.$$('#bsIconPicker .bs-icon-option').forEach(b =>
-      b.addEventListener('click', () => {
-        _icon = b.dataset.icon;
-        App.$$('#bsIconPicker .bs-icon-option').forEach(x => x.classList.remove('selected'));
-        b.classList.add('selected');
-      }));
+    /* 선택 상태를 클래스·aria·tabindex 에 한꺼번에 반영합니다.
+       roving tabindex: 그룹 전체가 Tab 한 번에 묶이고, 안에서는 화살표로 이동. */
+    const _wirePicker = (sel, itemSel, onPick) => {
+      const items = App.$$(`${sel} ${itemSel}`);
+      const select = (i) => {
+        items.forEach((x, j) => {
+          const on = i === j;
+          x.classList.toggle('selected', on);
+          x.setAttribute('aria-checked', on ? 'true' : 'false');
+          x.tabIndex = on ? 0 : -1;
+        });
+        onPick(items[i]);
+      };
+      items.forEach((b, i) => {
+        b.addEventListener('click', () => select(i));
+        b.addEventListener('keydown', (e) => {
+          const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+                  : e.key === 'ArrowLeft'  || e.key === 'ArrowUp'   ? -1 : 0;
+          if (!d) return;
+          e.preventDefault();
+          const next = (i + d + items.length) % items.length;
+          select(next);
+          items[next].focus();
+        });
+      });
+    };
+    _wirePicker('#bsColorPicker', '.bs-color-option', (b) => { _color = b.dataset.color; });
+    _wirePicker('#bsIconPicker',  '.bs-icon-option',  (b) => { _icon  = b.dataset.icon;  });
 
     App.openModal('bsRoomFormModal');
   };
 
   const submitRoom = async (e) => {
     e?.preventDefault();
+    App.clearErrors('#bsRoomFormModal');
     const name = App.$('#bsRoomName').value.trim();
-    if (!name) return App.showToast('방 이름을 입력해주세요.', 'error');
-    const { data, error } = await db.rpc('create_room', {
+    if (!name) return App.fieldError('#bsRoomName', '방 이름을 입력해주세요.');
+    const { error } = await db.rpc('create_room', {
       p_name: name, p_desc: App.$('#bsRoomDesc').value.trim(),
       p_icon: _icon, p_color: _color,
     });
@@ -199,7 +226,8 @@ const Bookshelf = (() => {
     const avail = (done ?? []).filter(l => !used.has(l.id));
     const el = App.$('#bsAddBookList');
     if (!avail.length) {
-      el.innerHTML = '<p class="empty-msg">꽂을 수 있는 완독 도서가 없습니다.</p>';
+      el.innerHTML = App.emptyState('📖',
+        '꽂을 수 있는 완독 도서가 없습니다. 책을 반납하면 여기에 나타납니다.');
     } else {
       _selLoan = null;
       el.innerHTML = avail.map(l => App.h`

@@ -1,0 +1,36 @@
+name: CI
+
+# 푸시와 PR 마다 린트를 돌립니다.
+# .eslintrc.json 은 예전부터 있었지만 실행할 방법이 없어 사실상 장식이었습니다.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: 서비스 워커 캐시 버전 확인
+        # index.html 이나 js/ 를 고쳤는데 sw.js 의 CACHE 를 안 올리면
+        # 기존 사용자가 옛 화면에 고착될 수 있어 경고만 남깁니다.
+        run: |
+          if git diff --name-only ${{ github.event.before || 'HEAD~1' }} HEAD 2>/dev/null \
+             | grep -qE '^(index\.html|js/)'; then
+            if ! git diff ${{ github.event.before || 'HEAD~1' }} HEAD -- sw.js 2>/dev/null \
+                 | grep -q 'CACHE'; then
+              echo "::warning::index.html 또는 js/ 가 바뀌었는데 sw.js 의 CACHE 버전이 그대로입니다."
+            fi
+          fi

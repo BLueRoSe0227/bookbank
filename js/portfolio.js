@@ -16,6 +16,8 @@ const Portfolio = (() => {
   ];
 
   const load = async () => {
+    App.showLoading('#pfBooks');
+
     const p = App.getProfile();
     const { data: books } = await db.from('loans')
       .select('loan_date,return_date,read_pages,rating,books(title,author,publisher,genre,total_pages)')
@@ -110,7 +112,9 @@ const Portfolio = (() => {
             <div class="pf-book-title">${b.books.title}</div>
             <div class="pf-book-rating">${App.raw('★'.repeat(b.rating || 0))}</div>
           </div>`).join('')
-      : '<p class="empty-msg">아직 완독한 책이 없습니다.</p>';
+      : App.emptyState('🌱', '아직 완독한 책이 없습니다. 첫 책을 등록해보세요.',
+                       { label: '책 등록하기', page: 'register' });
+    App.wireEmptyCta(App.$('#pfBooks'));
   };
 
   return { load };

@@ -34,16 +34,17 @@ const Settings = (() => {
   /* ── 닉네임 변경 ── */
   const saveNickname = async (e) => {
     e?.preventDefault();
+    App.clearErrors('[data-form="nickname"]');
     const nick = App.$('#setNickname').value.trim();
     if (nick.length < 2 || nick.length > 20)
-      return App.showToast('닉네임은 2~20자로 입력해주세요.', 'error');
+      return App.fieldError('#setNickname', '닉네임은 2~20자로 입력해주세요.');
 
     const p = App.getProfile();
     const { error } = await db.from('profiles').update({ nickname: nick }).eq('id', p.id);
     if (error) {
-      return App.showToast(
-        /duplicate/i.test(error.message) ? '이미 사용 중인 닉네임입니다.' : App.errMsg(error),
-        'error');
+      if (/duplicate/i.test(error.message))
+        return App.fieldError('#setNickname', '이미 사용 중인 닉네임입니다.');
+      return App.showToast(App.errMsg(error), 'error');
     }
     App.showToast('닉네임이 변경되었습니다.', 'success');
     await App.loadProfile(); await App.refreshHeader();
@@ -52,11 +53,13 @@ const Settings = (() => {
   /* ── 비밀번호 변경 ── */
   const changePassword = async (e) => {
     e?.preventDefault();
+    App.clearErrors('[data-form="password"]');
     const pw1 = App.$('#setNewPassword').value;
     const pw2 = App.$('#setNewPassword2').value;
     if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(pw1))
-      return App.showToast('비밀번호는 영문+숫자 포함 8자 이상이어야 합니다.', 'error');
-    if (pw1 !== pw2) return App.showToast('두 비밀번호가 일치하지 않습니다.', 'error');
+      return App.fieldError('#setNewPassword', '비밀번호는 영문+숫자 포함 8자 이상이어야 합니다.');
+    if (pw1 !== pw2)
+      return App.fieldError('#setNewPassword2', '두 비밀번호가 일치하지 않습니다.');
 
     const { error } = await db.auth.updateUser({ password: pw1 });
     if (error) return App.showToast(App.errMsg(error), 'error');
@@ -89,8 +92,9 @@ const Settings = (() => {
 
   const deleteAccount = async (e) => {
     e?.preventDefault();
+    App.clearErrors('#deleteAccountModal');
     if (App.$('#delConfirm').value.trim() !== '탈퇴합니다')
-      return App.showToast('확인 문구를 정확히 입력해주세요.', 'error');
+      return App.fieldError('#delConfirm', '확인 문구를 정확히 입력해주세요.');
 
     const { error } = await db.rpc('delete_my_account');
     if (error) return App.showToast(App.errMsg(error, '탈퇴 처리 실패'), 'error');

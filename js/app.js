@@ -41,6 +41,64 @@ const App = (() => {
   const $  = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+  /* ── 폼 오류를 필드 옆에 고정 ──────────────────────────
+     토스트는 3초 뒤 사라져서 사용자가 놓치기 쉽습니다. 입력값이 잘못된 경우는
+     해당 칸 아래에 붙여두고, 고칠 때까지 남겨둡니다.
+     (원래 등록 폼에만 있던 방식을 모든 폼으로 넓혔습니다) */
+  const fieldError = (sel, msg) => {
+    const input = $(sel);
+    if (!input) return;
+    const field = input.closest('.field');
+    if (!field) return showToast(msg, 'error');   // .field 밖이면 토스트로 폴백
+    field.classList.add('has-error');
+    let err = field.querySelector('.field-error');
+    if (!err) {
+      err = document.createElement('p');
+      err.className = 'field-error';
+      err.setAttribute('role', 'alert');
+      field.appendChild(err);
+    }
+    err.textContent = '⚠ ' + msg;
+    input.focus();
+  };
+
+  /* scope 안(폼·모달)의 오류 표시를 모두 지웁니다. 생략하면 화면 전체. */
+  const clearErrors = (scope) => {
+    const root = scope ? $(scope) : document;
+    root?.querySelectorAll('.field.has-error').forEach(f => {
+      f.classList.remove('has-error');
+      f.querySelector('.field-error')?.remove();
+    });
+  };
+
+  /* 로딩 표시 — 예전엔 관리자 화면에만 있어서 다른 화면은 느린 네트워크에서
+     빈 화면으로 보였습니다. 데이터를 불러오는 곳은 모두 이걸 먼저 부릅니다. */
+  const showLoading = (sel) => {
+    const el = $(sel);
+    if (el) el.innerHTML = '<div class="loading-wrap"><div class="spinner" role="status" '
+                         + 'aria-label="불러오는 중"></div></div>';
+  };
+
+  /* 빈 상태 — 문구만 있으면 다음에 뭘 해야 할지 알 수 없습니다.
+     아이콘 + 설명 + (선택) 버튼 한 개로 통일합니다.
+     action: { label, page } — 누르면 해당 화면으로 이동 */
+  const emptyState = (icon, message, action = null) => {
+    const btn = action
+      ? `<button class="btn btn-primary btn-sm empty-cta" type="button" `
+        + `data-page="${escapeHtml(action.page)}">${escapeHtml(action.label)}</button>`
+      : '';
+    return `<div class="empty-state">`
+      + `<div class="empty-icon" aria-hidden="true">${escapeHtml(icon)}</div>`
+      + `<p class="empty-text">${escapeHtml(message)}</p>${btn}</div>`;
+  };
+
+  /* emptyState 로 그린 버튼을 화면 이동에 연결합니다 (innerHTML 로 그린 뒤 호출). */
+  const wireEmptyCta = (root) => {
+    (root ? [root] : $$('.page')).forEach(r =>
+      r.querySelectorAll('.empty-cta').forEach(b =>
+        b.addEventListener('click', () => navigate(b.dataset.page))));
+  };
+
   const showToast = (msg, type = 'info') => {
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
@@ -77,8 +135,53 @@ const App = (() => {
     loaders[page]?.();
   };
 
-  const openModal  = (id) => { $(`#${id}`)?.classList.add('active'); };
-  const closeModal = (id) => { $(`#${id}`)?.classList.remove('active'); };
+  /* ── 모달 + 포커스 트랩 ────────────────────────────────
+     모달이 열려 있는 동안 Tab 이 뒤 화면으로 빠져나가면 키보드·스크린리더
+     사용자는 자기가 어디에 있는지 알 수 없게 됩니다.
+     열 때: 직전 포커스를 기억하고 모달 안으로 이동
+     닫을 때: 원래 있던 자리로 되돌려 놓기 */
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]),'
+                  + ' select:not([disabled]), textarea:not([disabled]),'
+                  + ' [tabindex]:not([tabindex="-1"])';
+
+  const _focusables = (root) =>
+    Array.from(root.querySelectorAll(FOCUSABLE)).filter(el => el.offsetParent !== null);
+
+  const _focusReturn = [];   // 중첩 모달을 대비해 스택으로 둡니다
+
+  const openModal = (id) => {
+    const m = $(`#${id}`);
+    if (!m || m.classList.contains('active')) return;
+    _focusReturn.push(document.activeElement);
+    m.classList.add('active');
+    // 닫기(X)보다는 실제 내용에 먼저 포커스를 둡니다
+    const items = _focusables(m);
+    (items.find(el => !el.classList.contains('modal-close')) || items[0])?.focus();
+  };
+
+  const closeModal = (id) => {
+    const m = $(`#${id}`);
+    if (!m || !m.classList.contains('active')) return;
+    m.classList.remove('active');
+    const back = _focusReturn.pop();
+    if (back && document.contains(back) && typeof back.focus === 'function') back.focus();
+  };
+
+  /* Tab 이 모달 밖으로 나가려 하면 반대쪽 끝으로 돌려보냅니다.
+     맨 위에 열린 모달 하나만 대상으로 합니다. */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const open = $$('.modal.active');
+    if (!open.length) return;
+    const modal = open[open.length - 1];
+    const items = _focusables(modal);
+    if (!items.length) return;
+
+    const first = items[0], last = items[items.length - 1];
+    if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   /* ── 프로필 / 경제 규칙 ───────────────────────────────── */
   const getProfile = () => _profile;
@@ -179,10 +282,16 @@ const App = (() => {
     let h = 0; for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) % 360;
     return h;
   };
+  /* 노랑~연두(hue 40~170) 는 같은 명도라도 눈에 훨씬 밝게 보여서
+     흰 글자와의 대비가 부족해집니다. 그 구간만 어둡게 보정합니다. */
+  const _coverLight = (hue) => (hue >= 40 && hue <= 170 ? 33 : 42);
+
   const genCover = (title, extraClass = '') => {
     const t = (String(title || '').trim()) || '?';
     const hue = _coverHue(t);
-    const bg = `linear-gradient(150deg, hsl(${hue} 46% 42%), hsl(${(hue + 40) % 360} 52% 32%))`;
+    const l = _coverLight(hue);
+    const hue2 = (hue + 40) % 360;
+    const bg = `linear-gradient(150deg, hsl(${hue} 46% ${l}%), hsl(${hue2} 52% ${_coverLight(hue2) - 10}%))`;
     return raw(`<div class="gen-cover ${escapeHtml(extraClass)}" aria-hidden="true" `
       + `style="background:${bg}"><span>${escapeHtml(t.slice(0, 1))}</span></div>`);
   };
@@ -271,6 +380,7 @@ const App = (() => {
       Auth.showAppScreen();
       await refreshHeader();
       navigate('home');
+      Admin.checkPending();   // 관리자면 승인 대기 건수를 탭바에 표시 (실패해도 무시)
       maybeOnboard();
     } catch (e) {
       console.error('[boot]', e);
@@ -289,7 +399,8 @@ const App = (() => {
 
   return {
     escapeHtml, h, raw, $, $$,
-    showToast, navigate, openModal, closeModal,
+    showToast, showLoading, emptyState, wireEmptyCta, fieldError, clearErrors,
+    navigate, openModal, closeModal,
     getProfile, loadProfile, refreshHeader, rules, genres,
     errMsg, fmtDate, daysLeft, toISODate, today, addDays,
     genCover, confirmDialog, _resolveConfirm, logEvent,

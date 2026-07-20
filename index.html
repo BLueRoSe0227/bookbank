@@ -376,6 +376,15 @@
             탈퇴하기
           </button>
         </div>
+
+        <!-- 약관 — 저장소의 문서로 연결합니다 (앱 자체는 정적 파일이라 별도 페이지 없음) -->
+        <p class="legal-links">
+          <a href="https://github.com/BLueRoSe0227/bookbank/blob/main/docs/이용약관.md"
+             target="_blank" rel="noopener noreferrer">이용약관</a>
+          <span aria-hidden="true">·</span>
+          <a href="https://github.com/BLueRoSe0227/bookbank/blob/main/docs/개인정보처리방침.md"
+             target="_blank" rel="noopener noreferrer">개인정보처리방침</a>
+        </p>
       </div>
     </section>
 
@@ -385,12 +394,14 @@
         <h1 id="adminTitle" class="page-title">관리자</h1>
 
         <div class="tab-group" role="tablist" aria-label="관리자 메뉴">
-          <button class="tab active" role="tab" aria-selected="true"
+          <button class="tab active" role="tab" aria-selected="true" id="adminTabPending"
                   data-tab="pending" type="button">승인 대기</button>
           <button class="tab" role="tab" aria-selected="false"
                   data-tab="members" type="button">회원</button>
           <button class="tab" role="tab" aria-selected="false"
                   data-tab="loans" type="button">대출 현황</button>
+          <button class="tab" role="tab" aria-selected="false"
+                  data-tab="stats" type="button">통계</button>
         </div>
 
         <div id="adminContent"></div>
@@ -506,7 +517,10 @@
     <div class="modal-body">
       <div class="field">
         <span class="label-like" id="ratingLabel">별점</span>
-        <div id="returnStars" class="stars" role="group" aria-labelledby="ratingLabel"></div>
+        <!-- 자식이 role="radio" 이므로 부모는 radiogroup 이어야 유효합니다.
+             선택 결과는 아래 live 영역이 읽어주고, 그룹 이름표는 그대로 둡니다. -->
+        <div id="returnStars" class="stars" role="radiogroup" aria-labelledby="ratingLabel"></div>
+        <p id="returnStarsStatus" class="sr-only" aria-live="polite"></p>
       </div>
       <div class="field">
         <label for="returnMemo">감상 메모 (선택)</label>

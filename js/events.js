@@ -42,19 +42,22 @@
     });
 
     // 모달 바깥(어두운 배경)을 누르면 닫기
+    // classList 를 직접 건드리지 않고 App.closeModal 을 거칩니다 — 그래야
+    // 포커스가 원래 자리로 돌아갑니다.
     on('.modal', 'click', (e) => {
       if (e.target !== e.currentTarget) return;
       if (e.currentTarget.id === 'confirmModal') return App._resolveConfirm(false);
-      e.currentTarget.classList.remove('active');
+      App.closeModal(e.currentTarget.id);
     });
 
-    // ESC 로 열린 모달 닫기
+    // ESC 로 열린 모달 닫기 (맨 위 것 하나만)
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      App.$$('.modal.active').forEach(m => {
-        if (m.id === 'confirmModal') App._resolveConfirm(false);
-        else m.classList.remove('active');
-      });
+      const open = App.$$('.modal.active');
+      if (!open.length) return;
+      const top = open[open.length - 1];
+      if (top.id === 'confirmModal') App._resolveConfirm(false);
+      else App.closeModal(top.id);
     });
 
     /* ── [X1] 확인 대화상자 ───────────────────────────── */

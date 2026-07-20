@@ -94,6 +94,8 @@ const Loans = (() => {
       t.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
+    App.showLoading('#loanList');
+
     const p = App.getProfile();
     const filter = status === 'active' ? ['active', 'overdue'] : [status];
     const { data, error } = await db
@@ -103,8 +105,18 @@ const Loans = (() => {
       .order('created_at', { ascending: false });
 
     const el = App.$('#loanList');
-    if (error)        return el.innerHTML = '<p class="empty-msg">불러오지 못했습니다.</p>';
-    if (!data.length) return el.innerHTML = `<p class="empty-msg">${status === 'active' ? '대출 중인 책이 없습니다.' : '반납한 책이 없습니다.'}</p>`;
+    if (error) {
+      el.innerHTML = App.emptyState('⚠️', '목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    if (!data.length) {
+      el.innerHTML = status === 'active'
+        ? App.emptyState('📚', '대출 중인 책이 없습니다. 읽고 싶은 책을 등록해보세요.',
+                         { label: '책 등록하기', page: 'register' })
+        : App.emptyState('✅', '아직 반납한 책이 없습니다.');
+      App.wireEmptyCta(el);
+      return;
+    }
 
     const r = await App.rules();
     el.innerHTML = data.map(l => {
@@ -175,6 +187,7 @@ const Loans = (() => {
   const openReturnModal = (id, title = '') => {
     _returnId = id; _rating = 0; _returnTitle = title;
     _buildStars();
+    App.$('#returnStarsStatus').textContent = '';
     App.$('#returnMemo').value = '';
     App.openModal('returnModal');
   };
@@ -186,12 +199,15 @@ const Loans = (() => {
       s.setAttribute('aria-checked', i + 1 === n ? 'true' : 'false');
       s.tabIndex = i + 1 === n ? 0 : -1;
     });
-    App.$('#returnStars').setAttribute('aria-label', `${n}점 선택됨`);
+    // aria-label 을 여기에 걸면 "별점" 이름표를 덮어써 버립니다.
+    // 선택 결과는 별도 live 영역으로 알립니다.
+    App.$('#returnStarsStatus').textContent = `${n}점 선택됨`;
   };
 
   const submitReturn = async (e) => {
     e?.preventDefault();
-    if (!_rating) return App.showToast('별점을 선택해주세요.', 'error');
+    App.clearErrors('#returnModal');
+    if (!_rating) return App.fieldError('#returnStars', '별점을 선택해주세요.');
     const btn = App.$('#returnSubmitBtn');
     btn.disabled = true;
     try {

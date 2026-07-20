@@ -1,0 +1,14 @@
+{
+  "name": "bookbank",
+  "version": "3.0.0",
+  "description": "읽은 만큼 쌓이는 독서 기록 PWA",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "lint": "eslint js sw.js --max-warnings 0",
+    "serve": "npx --yes serve ."
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
+}

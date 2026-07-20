@@ -94,13 +94,25 @@
 }
 .bs-shelf-floor:last-child { margin-bottom: 0; }
 
+/* 예전엔 JS가 8권씩 끊어 선반을 나눴습니다. 화면 폭과 무관해서
+   좁은 기기에선 가로로 넘치고 넓은 기기에선 공백이 남았습니다.
+   → 책을 한 줄에 흘려보내고, 줄이 넘치면 wrap 되게 합니다.
+   각 줄 아래 나무 선반은 repeating-linear-gradient 로 그립니다. */
 .bs-shelf-books {
-  display: flex; align-items: flex-end; gap: 3px;
+  display: flex; flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 3px;
+  row-gap: 0;
   min-height: 108px;
   padding-bottom: 8px;
   border-bottom: 8px solid var(--shelf-wood);
   border-radius: 0 0 3px 3px;
-  overflow-x: auto;
+}
+/* 줄바꿈된 각 줄의 바닥선 — 책 아래에 나무 결이 이어져 보이게 */
+.bs-shelf-books > .bs-book {
+  border-bottom: 8px solid var(--shelf-wood);
+  margin-bottom: 8px;
+  border-radius: 0 0 2px 2px;
 }
 
 .bs-empty-shelf {

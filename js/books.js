@@ -41,27 +41,9 @@ const Books = (() => {
     App.$('#loanTargetDate').min   = App.addDays(1);    // 최소 내일
   };
 
-  /* ── 인라인 오류 (X3) ── */
-  const _fieldError = (sel, msg) => {
-    const input = App.$(sel);
-    const field = input.closest('.field');
-    field.classList.add('has-error');
-    let err = field.querySelector('.field-error');
-    if (!err) {
-      err = document.createElement('p');
-      err.className = 'field-error';
-      err.setAttribute('role', 'alert');
-      field.appendChild(err);
-    }
-    err.textContent = '⚠ ' + msg;
-    input.focus();
-  };
-  const _clearErrors = () => {
-    App.$$('#registerForm .field.has-error').forEach(f => {
-      f.classList.remove('has-error');
-      f.querySelector('.field-error')?.remove();
-    });
-  };
+  /* ── 인라인 오류 (X3) — 구현은 App 으로 옮겼습니다 (모든 폼이 공유) ── */
+  const _fieldError  = (sel, msg) => App.fieldError(sel, msg);
+  const _clearErrors = () => App.clearErrors('#registerForm');
 
   /* ── 보증금 안내 (잔액이 모자라면 미리 알려줌) ── */
   const _renderDeposit = async () => {
@@ -155,7 +137,8 @@ const Books = (() => {
       const items = box.querySelectorAll('.autocomplete-item');
       if (!items.length) return;
       _acIndex = (_acIndex + d + items.length) % items.length;
-      items.forEach((el, i) => el.style.background = i === _acIndex ? 'var(--bg-sunken)' : '');
+      // style 을 직접 만지면 테마·토큰 체계 밖으로 나갑니다. 색은 CSS 에서.
+      items.forEach((el, i) => el.classList.toggle('is-active', i === _acIndex));
       input.setAttribute('aria-activedescendant', `ac-${_acIndex}`);
     };
     const _pick = (i) => {

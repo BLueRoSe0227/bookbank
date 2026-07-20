@@ -1,4 +1,5 @@
 # Dependencies
+# package-lock.json 은 CI 재현성을 위해 일부러 커밋합니다.
 node_modules/
 
 # Environment / secrets

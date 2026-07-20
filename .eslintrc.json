@@ -18,7 +18,10 @@
     "Portfolio": "readonly"
   },
   "rules": {
-    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-unused-vars": ["warn", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^(_|db$|App$|Auth$|Books$|Loans$|Admin$|Settings$|Bookshelf$|Portfolio$)"
+    }],
     "no-empty": ["warn", { "allowEmptyCatch": true }],
     "no-console": "off",
     "eqeqeq": ["warn", "smart"],
