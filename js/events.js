@@ -74,6 +74,7 @@
       'submit-room':    () => Bookshelf.submitRoom(),
       'delete-room':    () => Bookshelf.deleteRoom(),
       'open-addbook':   () => Bookshelf.openAddBook(),
+      'submit-addbook': () => Bookshelf.submitAddBook(),
     };
     on('[data-action]', 'click', (e) => actions[e.currentTarget.dataset.action]?.());
 

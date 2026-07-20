@@ -20,9 +20,20 @@ const Books = (() => {
       _resetDates();
       App.$('#bookPubDate').max = App.today();          // 출간일은 미래 불가
       _wireAutocomplete();
+      await _fillGenres();
     }
     _clearErrors();
     await _renderDeposit();
+  };
+
+  /* 장르 <select> 를 genres 테이블로 채웁니다.
+     "선택 안 함" 첫 항목은 index.html 에 이미 있으므로 뒤에 붙이기만 합니다. */
+  const _fillGenres = async () => {
+    const list = await App.genres();
+    if (!list.length) return;
+    const sel = App.$('#bookGenre');
+    sel.insertAdjacentHTML('beforeend',
+      list.map(g => App.h`<option value="${g.name}">${g.name}</option>`).join(''));
   };
 
   const _resetDates = () => {
@@ -152,6 +163,7 @@ const Books = (() => {
       App.$('#bookTitle').value     = b.title || '';
       App.$('#bookAuthor').value    = b.author || '';
       App.$('#bookPublisher').value = b.publisher || '';
+      // 목록에 없는 예전 장르 값이면 <select> 가 조용히 ''가 되므로 그대로 둡니다.
       App.$('#bookGenre').value     = b.genre || '';
       App.$('#bookPubDate').value   = /^\d{4}-\d{2}-\d{2}$/.test(b.pub_date || '') ? b.pub_date : '';
       App.$('#bookPages').value     = b.total_pages || '';

@@ -12,7 +12,8 @@
 // ⚠️ index.html·js 를 고쳤다면 이 번호를 반드시 올리세요.
 //    캐시 우선 전략이라, 안 올리면 기존 사용자는 옛날 화면을 계속 봅니다.
 //    v2: 도서 검색 API 제거 → 책 직접 등록
-const CACHE = 'library-bank-v2';
+//    v3: 책 꽂기 버튼 추가, SDK 버전 고정, 장르 <select> 전환
+const CACHE = 'library-bank-v3';
 
 const ASSETS = [
   './',

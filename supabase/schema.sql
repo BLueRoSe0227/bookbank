@@ -76,6 +76,35 @@ create trigger on_auth_user_created
 -- ── 3. 도서 (공용 캐시) ────────────────────────────────────
 -- [변경] 도서 검색 API를 걷어내고 사용자가 직접 입력하는 방식으로 바꿨습니다.
 --        isbn/cover_url 은 더 이상 채워지지 않지만, 기존 데이터를 위해 컬럼은 남깁니다.
+-- 정규화 함수: 공백과 구두점을 지우고 소문자로.
+--   "해리 포터 (1권)" → "해리포터1권" / "J.K. 롤링" → "jk롤링"
+--   lower() 만으로는 "해리 포터"와 "해리포터"를 같은 책으로 못 봅니다.
+--
+-- ⚠️ 아래 generated 컬럼이 이 함수를 씁니다. 정의를 바꾸면 이미 저장된 값과
+--    어긋나므로, 고칠 일이 생기면 컬럼을 drop → 재생성해 전체를 다시 계산하세요.
+create or replace function book_norm(t text)
+returns text
+language sql
+immutable
+as $$
+  select regexp_replace(lower(trim(coalesce(t, ''))), '[[:space:][:punct:]]', '', 'g');
+$$;
+
+-- 장르는 자유 입력이 아니라 이 목록에서 고릅니다.
+--   자유 입력이면 "소설"/"장편소설"/"문학" 이 별개 항목이 되어
+--   장르 통계와 '장르 탐험가' 업적이 무의미해집니다.
+--   화면의 <select> 도 이 표를 읽어 그리므로, 추가하려면 여기에 한 줄만 넣으면 됩니다.
+create table genres (
+  id   smallserial primary key,
+  name text not null unique,
+  sort smallint not null default 0
+);
+insert into genres (name, sort) values
+  ('소설', 10), ('시', 20), ('에세이', 30), ('인문', 40),
+  ('사회', 50), ('과학', 60), ('경제/경영', 70), ('자기계발', 80),
+  ('역사', 90), ('예술', 100), ('만화', 110), ('어린이', 120),
+  ('기타', 999);
+
 create table books (
   id          bigserial primary key,
   isbn        text unique,              -- (구) API 시절 데이터용. 직접 등록은 NULL
@@ -85,13 +114,16 @@ create table books (
   pub_date    text default '',
   description text default '',          -- 줄거리
   cover_url   text default '',          -- (구) API 시절 데이터용. 직접 등록은 ''
-  genre       text default '',
+  genre       text default '',          -- 표시용 원문 (목록에 없는 예전 값도 보존)
+  genre_id    smallint references genres(id),   -- 통계용 정리된 장르
   total_pages int,                      -- NULL = 미상. 통계에서 추정값으로 오염되지 않게. (P5)
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  norm_title  text generated always as (book_norm(title))  stored,
+  norm_author text generated always as (book_norm(author)) stored
 );
 -- 도서명+작가로 같은 책을 판별합니다 (ISBN이 없으므로).
-create unique index books_title_author_idx
-  on books (lower(title), lower(coalesce(author, '')));
+create unique index books_norm_idx  on books (norm_title, norm_author);
+create index        books_genre_idx on books (genre_id);
 
 
 -- ── 4. 대출 ────────────────────────────────────────────────
@@ -225,6 +257,11 @@ create policy "관리자 회원 삭제" on profiles
 -- books: 승인 회원은 모두 조회 가능 (공용 캐시)
 create policy "회원 도서 조회" on books
   for select using (is_member());
+
+-- genres: 회원이면 목록 조회 가능 (등록 화면의 장르 <select> 를 이 표로 그립니다)
+alter table genres enable row level security;
+create policy "회원 장르 조회" on genres
+  for select using (is_member());
 -- 도서 등록은 create_loan() 함수에서만 (사용자가 임의로 넣지 못하게)
 
 -- loans: 본인 것만. 관리자는 전체 조회.
@@ -356,14 +393,16 @@ language plpgsql
 security definer set search_path = public
 as $$
 declare
-  v_uid     uuid := auth.uid();
-  v_book    bigint;
-  v_deposit int  := app_config('loan_deposit');
-  v_balance int;
-  v_loan    bigint;
-  v_title   text := trim(coalesce(p_title, ''));
-  v_author  text := trim(coalesce(p_author, ''));
-  v_pages   int  := case when p_pages is null then null else greatest(1, p_pages) end;  -- P5: 미입력은 NULL
+  v_uid      uuid := auth.uid();
+  v_book     bigint;
+  v_deposit  int  := app_config('loan_deposit');
+  v_balance  int;
+  v_loan     bigint;
+  v_title    text := trim(coalesce(p_title, ''));
+  v_author   text := trim(coalesce(p_author, ''));
+  v_genre    text := coalesce(nullif(trim(p_genre), ''), '');
+  v_genre_id smallint;
+  v_pages    int  := case when p_pages is null then null else greatest(1, p_pages) end;  -- P5: 미입력은 NULL
 begin
   if not is_member() then raise exception '승인된 회원만 이용할 수 있습니다.'; end if;
   if v_title = '' then raise exception '도서명을 입력해주세요.'; end if;
@@ -371,31 +410,34 @@ begin
   if char_length(v_author) > 100 then raise exception '작가명이 너무 깁니다.'; end if;
   if p_target <= current_date then raise exception '오늘 이후 날짜를 선택해주세요.'; end if;
 
-  -- 중복 대출 확인 (ISBN이 없으므로 도서명+작가로 판별)
+  -- 목록에 없는 장르는 무시합니다 (genre 텍스트는 남기되 genre_id 는 NULL)
+  select id into v_genre_id from genres where book_norm(name) = book_norm(v_genre);
+
+  -- 중복 대출 확인 (ISBN이 없으므로 도서명+작가를 정규화해서 판별)
   if exists (
        select 1 from loans l join books b on b.id = l.book_id
        where l.user_id = v_uid
-         and lower(b.title) = lower(v_title)
-         and lower(coalesce(b.author, '')) = lower(v_author)
+         and b.norm_title  = book_norm(v_title)
+         and b.norm_author = book_norm(v_author)
          and l.status in ('active','overdue')
      ) then
     raise exception '이미 대출 중인 도서입니다.';
   end if;
 
   -- 도서 등록 또는 재사용 (D3: 동시 등록 경합에도 books 행은 하나)
-  --   유니크 인덱스(lower(title), lower(author)) 에 on conflict 로 원자적 처리.
-  insert into books (title, author, publisher, pub_date, genre, description, total_pages)
+  --   유니크 인덱스(norm_title, norm_author) 에 on conflict 로 원자적 처리.
+  insert into books (title, author, publisher, pub_date, genre, genre_id, description, total_pages)
   values (v_title, v_author, coalesce(p_publisher,''), coalesce(p_pub_date,''),
-          coalesce(nullif(trim(p_genre),''), ''), coalesce(p_desc,''), v_pages)
-  on conflict (lower(title), lower(coalesce(author, ''))) do nothing;
+          v_genre, v_genre_id, coalesce(p_desc,''), v_pages)
+  on conflict (norm_title, norm_author) do nothing;
 
   select id into v_book from books
-   where lower(title) = lower(v_title)
-     and lower(coalesce(author, '')) = lower(v_author);
+   where norm_title = book_norm(v_title) and norm_author = book_norm(v_author);
 
   -- 기존 행에 장르/줄거리/페이지가 비어 있으면 이번 입력으로 채워줌 (덮어쓰진 않음)
   update books set
-    genre       = case when coalesce(genre,'')='' then coalesce(nullif(trim(p_genre),''),'') else genre end,
+    genre       = case when coalesce(genre,'')='' then v_genre else genre end,
+    genre_id    = coalesce(genre_id, v_genre_id),
     description = case when coalesce(description,'')='' then coalesce(p_desc,'') else description end,
     total_pages = coalesce(total_pages, v_pages)
    where id = v_book;
@@ -783,6 +825,8 @@ revoke insert, update, delete on loans        from authenticated;
 revoke insert, update, delete on transactions from authenticated;
 revoke insert, update, delete on overdue_logs from authenticated;
 revoke insert, update, delete on books        from authenticated;
+-- 🔒 장르 목록은 읽기 전용 (관리자가 SQL로만 추가)
+revoke insert, update, delete on genres       from authenticated;
 -- 서재 방 추가도 요금 차감과 묶여야 하므로 함수로만
 revoke insert on bookshelf_rooms from authenticated;
 

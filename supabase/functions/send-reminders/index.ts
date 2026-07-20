@@ -13,7 +13,8 @@
 //  ⚠️ 이 함수는 service_role 로 실행되어 모든 사용자 이메일을 읽습니다.
 //     반드시 Edge Function 환경변수로만 키를 두고, 클라이언트엔 두지 마세요.
 // ═══════════════════════════════════════════════════════════
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// 버전을 고정합니다. @2 로 두면 배포할 때마다 다른 버전이 딸려올 수 있습니다.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.7";
 
 Deno.serve(async () => {
   const supabase = createClient(

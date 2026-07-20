@@ -192,16 +192,11 @@
           </div>
           <div class="field">
             <label for="bookGenre">장르</label>
-            <input type="text" id="bookGenre" maxlength="30" list="genreList"
-                   placeholder="예) 소설">
-            <datalist id="genreList">
-              <option value="소설"></option><option value="에세이"></option>
-              <option value="인문"></option><option value="사회"></option>
-              <option value="과학"></option><option value="경제/경영"></option>
-              <option value="자기계발"></option><option value="역사"></option>
-              <option value="예술"></option><option value="시"></option>
-              <option value="만화"></option><option value="어린이"></option>
-            </datalist>
+            <!-- 목록은 books.js 가 genres 테이블을 읽어 채웁니다.
+                 자유 입력을 막아야 장르 통계와 '장르 탐험가' 업적이 의미를 갖습니다. -->
+            <select id="bookGenre">
+              <option value="">선택 안 함</option>
+            </select>
           </div>
           <div class="field">
             <label for="bookPubDate">출간일</label>
@@ -694,6 +689,10 @@
       <p class="card-desc">완독한 책만 꽂을 수 있어요.</p>
       <div id="bsAddBookList" class="bs-add-book-list"></div>
     </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" data-close="bsAddBookModal" type="button">취소</button>
+      <button class="btn btn-primary" data-action="submit-addbook" type="button">꽂기</button>
+    </div>
   </div>
 </div>
 
@@ -701,8 +700,16 @@
 <!-- ══════════════════════════════════════════════════════════
      스크립트
      ══════════════════════════════════════════════════════════ -->
-<!-- Supabase 공식 SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Supabase 공식 SDK
+     버전을 패치까지 고정하고 integrity 해시를 답니다.
+       · @2 로 두면 CDN이 새 버전을 밀 때 예고 없이 앱이 깨질 수 있습니다.
+       · integrity 가 없으면 CDN이 변조돼도 브라우저가 그대로 실행합니다.
+     ⚠️ 버전을 올릴 때는 해시도 반드시 다시 계산해서 같이 바꾸세요:
+        curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@<버전>/dist/umd/supabase.js \
+          | openssl dgst -sha384 -binary | openssl base64 -A -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.7/dist/umd/supabase.js"
+        integrity="sha384-hazsLVND17GNLVdtV19te6qbFT2YuLgl8SamcF+QR5eIOC+W4dGKrUNMxU1jH1zD"
+        crossorigin="anonymous"></script>
 
 <!-- config.js 를 가장 먼저: Supabase 접속 정보 -->
 <script src="./js/config.js"></script>

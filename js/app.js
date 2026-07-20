@@ -114,6 +114,16 @@ const App = (() => {
     return out;
   };
 
+  /* 장르 목록 — 등록 화면의 <select> 를 채웁니다.
+     자주 바뀌지 않으므로 한 번만 받아 재사용합니다. */
+  let _genres = null;
+  const genres = async () => {
+    if (_genres) return _genres;
+    const { data, error } = await db.from('genres').select('id,name').order('sort');
+    _genres = (!error && data) ? data : [];
+    return _genres;
+  };
+
   const refreshHeader = async () => {
     const p = _profile;
     if (!p) return;
@@ -280,7 +290,7 @@ const App = (() => {
   return {
     escapeHtml, h, raw, $, $$,
     showToast, navigate, openModal, closeModal,
-    getProfile, loadProfile, refreshHeader, rules,
+    getProfile, loadProfile, refreshHeader, rules, genres,
     errMsg, fmtDate, daysLeft, toISODate, today, addDays,
     genCover, confirmDialog, _resolveConfirm, logEvent,
     finishOnboard, toggleTheme, boot, registerSW,
