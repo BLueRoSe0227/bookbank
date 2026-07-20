@@ -92,6 +92,7 @@ npm run lint
 ## 문서
 
 - [CHANGELOG.md](CHANGELOG.md) — 변경 이력
+- [docs/개선사항.md](docs/개선사항.md) — 개선 항목 추적 (남은 과제와 처리 상태)
 - [배포안내.md](배포안내.md) — 배포 절차 상세
 - [docs/이용약관.md](docs/이용약관.md) / [docs/개인정보처리방침.md](docs/개인정보처리방침.md)
 
