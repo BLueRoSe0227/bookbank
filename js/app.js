@@ -373,7 +373,15 @@ const App = (() => {
       if (!session) { Auth.showAuthScreen(); return; }
 
       const p = await loadProfile();
-      if (!p) { await db.auth.signOut(); Auth.showAuthScreen(); return; }
+      if (!p) {
+        // 로그인(auth.users)은 됐는데 profiles 행이 없는 경우.
+        // schema.sql 을 이미 쓰던 프로젝트에 재실행하면 profiles 가 통째로 날아가는데
+        // auth.users 는 남아있어 이 상태가 됩니다. 안내 없이 조용히 튕기면 원인을 알 수 없습니다.
+        await db.auth.signOut();
+        Auth.showAuthScreen();
+        showToast('계정 정보를 불러오지 못했습니다. 관리자에게 문의해주세요.', 'error');
+        return;
+      }
 
       if (p.role === 'pending') { Auth.showPendingScreen(); return; }
 

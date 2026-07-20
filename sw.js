@@ -15,7 +15,8 @@
 //    v3: 책 꽂기 버튼 추가, SDK 버전 고정, 장르 <select> 전환
 //    v4: 접근성(포커스 트랩·ARIA), 로딩/빈 상태 통일, 관리자 통계 탭
 //    v5: 로그인/가입에서 예외(네트워크 오류 등) 시 무반응이던 버그 수정
-const CACHE = 'library-bank-v5';
+//    v6: profiles 행이 없을 때 로그인이 안내 없이 튕기던 문제 수정
+const CACHE = 'library-bank-v6';
 
 const ASSETS = [
   './',
