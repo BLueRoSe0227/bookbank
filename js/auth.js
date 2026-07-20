@@ -9,6 +9,9 @@ const Auth = (() => {
     App.$('#authScreen').classList.remove('hidden');
     App.$('#pendingScreen').classList.add('hidden');
     App.$('#appScreen').classList.add('hidden');
+    // 저장된 자동 로그인 선택을 체크박스에 반영 (기본: 켜짐)
+    const cb = App.$('#rememberMe');
+    if (cb) cb.checked = localStorage.getItem('lb_remember') !== '0';
   };
   const showPendingScreen = () => {
     App.$('#authScreen').classList.add('hidden');
@@ -41,6 +44,11 @@ const Auth = (() => {
     const pw    = App.$('#loginPassword').value;
     if (!email) return App.fieldError('#loginEmail', '이메일을 입력해주세요.');
     if (!pw)    return App.fieldError('#loginPassword', '비밀번호를 입력해주세요.');
+
+    // 자동 로그인 토글: 로그인 직전에 세션 저장 위치(local/session)를 확정합니다.
+    // (config.js 의 rememberStorage 가 이 플래그를 읽습니다)
+    const remember = App.$('#rememberMe')?.checked ?? true;
+    localStorage.setItem('lb_remember', remember ? '1' : '0');
 
     const btn = App.$('#loginBtn');
     btn.disabled = true; btn.textContent = '로그인 중...';

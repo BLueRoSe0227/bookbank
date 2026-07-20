@@ -15,12 +15,13 @@
     "Admin": "readonly",
     "Settings": "readonly",
     "Bookshelf": "readonly",
-    "Portfolio": "readonly"
+    "Portfolio": "readonly",
+    "Themes": "readonly"
   },
   "rules": {
     "no-unused-vars": ["warn", {
       "argsIgnorePattern": "^_",
-      "varsIgnorePattern": "^(_|db$|App$|Auth$|Books$|Loans$|Admin$|Settings$|Bookshelf$|Portfolio$)"
+      "varsIgnorePattern": "^(_|db$|App$|Auth$|Books$|Loans$|Admin$|Settings$|Bookshelf$|Portfolio$|Themes$)"
     }],
     "no-empty": ["warn", { "allowEmptyCatch": true }],
     "no-console": "off",

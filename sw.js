@@ -16,7 +16,9 @@
 //    v4: 접근성(포커스 트랩·ARIA), 로딩/빈 상태 통일, 관리자 통계 탭
 //    v5: 로그인/가입에서 예외(네트워크 오류 등) 시 무반응이던 버그 수정
 //    v6: profiles 행이 없을 때 로그인이 안내 없이 튕기던 문제 수정
-const CACHE = 'library-bank-v6';
+//    v7: 관리자 잔액 무관 활동, 요청사항(문의)·활동이력 탭 추가
+//    v8: 자동로그인 토글, 색 테마 상점, 방 설계도·꾸미기, 통장 은행앱 UI
+const CACHE = 'library-bank-v8';
 
 const ASSETS = [
   './',
@@ -26,6 +28,7 @@ const ASSETS = [
   './css/bookshelf.css',
   './js/config.js',
   './js/app.js',
+  './js/themes.js',
   './js/auth.js',
   './js/books.js',
   './js/loans.js',

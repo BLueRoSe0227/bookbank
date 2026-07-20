@@ -324,12 +324,14 @@ const App = (() => {
     const dark  = saved ? saved === 'dark'
                         : window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    Themes.applySaved();   // 저장된 색 팔레트를 이 테마(라이트/다크)에 맞춰 적용
   };
   const toggleTheme = () => {
     const now  = document.documentElement.getAttribute('data-theme');
     const next = now === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
+    Themes.applySaved();   // 팔레트를 새 테마용 색으로 다시 적용
   };
 
   /* [D6] 서버에 아예 닿지 못할 때(오프라인·프로젝트 정지) 보여줄 화면.

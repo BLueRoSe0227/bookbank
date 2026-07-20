@@ -70,6 +70,80 @@
   background: var(--primary);
 }
 
+/* ── 건축 도면(설계도) ───────────────────────────────────── */
+.blueprint-wrap { margin-bottom: 14px; }
+.blueprint {
+  position: relative;
+  background-color: var(--primary-light);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 22px 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 26px;
+}
+.blueprint-room {
+  position: relative;
+  height: 180px;
+  border: 3px solid var(--primary);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--primary-light);
+}
+.bp-titleblock {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px; line-height: 1.35; color: var(--text-sub);
+}
+.bp-titleblock b { color: var(--text); }
+
+/* 벽에 뚫린 문 — 벽선을 끊고 스윙 아크를 그림 */
+.bp-door {
+  position: absolute; bottom: -3px; width: 30px; height: 6px;
+  transform: translateX(-50%);
+  background: var(--primary-light);
+}
+.bp-door::after {
+  content: ""; position: absolute; left: 0; bottom: 0;
+  width: 28px; height: 28px;
+  border-left: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  border-radius: 0 0 0 100%;
+  opacity: .6;
+}
+/* 창문 — 위쪽 벽의 이중선 */
+.bp-window {
+  position: absolute; top: -3px; width: 38px; height: 6px;
+  transform: translateX(-50%);
+  background: var(--primary-light);
+  border-top: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+}
+/* 실내 소품(화분·액자·조명·러그) */
+.bp-items {
+  position: absolute; inset: 40px 14px 16px;
+  display: flex; flex-wrap: wrap; align-content: flex-end; justify-content: center;
+  gap: 10px 14px;
+}
+.bp-item { font-size: 24px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.2)); }
+
+/* 방 꾸미기 상점 */
+.decor-shop { display: flex; flex-direction: column; gap: 8px; }
+.decor-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.decor-emoji { font-size: 24px; flex-shrink: 0; }
+.decor-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.decor-name { font-size: 14px; font-weight: 700; }
+.decor-count { font-size: 12px; color: var(--text-muted); }
+
 /* ── 3D 책장 ─────────────────────────────────────────────── */
 .bs-shelf-container {
   perspective: 1400px;

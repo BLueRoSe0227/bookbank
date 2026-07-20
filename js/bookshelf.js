@@ -3,8 +3,10 @@
    ═══════════════════════════════════════════════════════════ */
 const Bookshelf = (() => {
   let _roomId = null, _color = '#5B8FBF', _icon = '📚', _selLoan = null;
+  let _decorCache = [], _roomName = '서재', _roomBookCount = 0;
   const COLORS = ['#5B8FBF','#D4848C','#6BA883','#D9A85B','#8B7BB8','#C97070'];
   const ICONS  = ['📚','📖','📕','📗','📘','🎭','🔬','🎨','💼','🌍'];
+  const DECOR_EMOJI = { door:'🚪', window:'🪟', plant:'🪴', frame:'🖼️', lamp:'💡', rug:'🟫' };
 
   const _spineColor = (title) => {
     let h = 0;
@@ -69,11 +71,18 @@ const Bookshelf = (() => {
     _roomId = id;
     const { data: room } = await db.from('bookshelf_rooms')
       .select('name').eq('id', id).single();
-    App.$('#bsRoomTitle').textContent = room?.name ?? '서재';
+    _roomName = room?.name ?? '서재';
+    App.$('#bsRoomTitle').textContent = _roomName;
 
     const { data: books } = await db.from('bookshelf_books')
       .select('id,note,books(title,author,cover_url,total_pages),loans(rating,return_date,memo)')
       .eq('room_id', id).order('added_at', { ascending: false });
+
+    // 방 꾸미기(데코) — 건축 도면에 표시
+    _roomBookCount = books?.length ?? 0;
+    const { data: decor } = await db.from('room_decor').select('id,kind').eq('room_id', id);
+    _decorCache = decor ?? [];
+    _renderBlueprint();
 
     const shelf = App.$('#bsShelfContainer');
     if (!books?.length) {
@@ -110,6 +119,65 @@ const Bookshelf = (() => {
       });
     }
     App.openModal('bsRoomModal');
+  };
+
+  /* ── 건축 도면(설계도) ── */
+  const _renderBlueprint = () => {
+    const el = App.$('#bsBlueprint');
+    if (!el) return;
+    const doors   = _decorCache.filter(d => d.kind === 'door');
+    const windows = _decorCache.filter(d => d.kind === 'window');
+    const inside  = _decorCache.filter(d => !['door', 'window'].includes(d.kind));
+
+    // 벽을 따라 균등 배치할 좌표(%)
+    const spread = (arr, cls) => arr.map((_, i) =>
+      `<span class="${cls}" style="left:${((i + 1) / (arr.length + 1) * 100).toFixed(1)}%"></span>`).join('');
+    const doorHtml = spread(doors, 'bp-door');
+    const winHtml  = spread(windows, 'bp-window');
+    const inHtml   = inside.map(d =>
+      `<span class="bp-item">${DECOR_EMOJI[d.kind] || '▫'}</span>`).join('');
+    const area = 8 + _roomBookCount * 2;   // 완독 권수를 방 넓이처럼 표시
+
+    el.innerHTML = App.h`
+      <div class="blueprint" aria-label="방 설계도">
+        <div class="blueprint-room">
+          <div class="bp-titleblock">
+            <b>${_roomName}</b><br>완독 ${_roomBookCount}권 · 약 ${area}㎡
+          </div>
+          ${App.raw(doorHtml)}
+          ${App.raw(winHtml)}
+          <div class="bp-items">${App.raw(inHtml)}</div>
+        </div>
+      </div>`;
+  };
+
+  const openDecor = async () => {
+    const { data: items } = await db.from('decor_items')
+      .select('kind,name,emoji,price,sort').order('sort');
+    const shop = App.$('#decorShop');
+    shop.innerHTML = (items ?? []).map(it => App.h`
+      <div class="decor-item">
+        <span class="decor-emoji" aria-hidden="true">${it.emoji}</span>
+        <div class="decor-info">
+          <span class="decor-name">${it.name}</span>
+          <span class="decor-count">놓인 개수 ${App.raw(String(_decorCache.filter(d => d.kind === it.kind).length))}</span>
+        </div>
+        <button class="btn btn-sm btn-primary" data-decor="${it.kind}" type="button">설치 · ${it.price}원</button>
+      </div>`).join('');
+    shop.querySelectorAll('[data-decor]').forEach(b =>
+      b.addEventListener('click', () => _buyDecor(b.dataset.decor)));
+    App.openModal('decorModal');
+  };
+
+  const _buyDecor = async (kind) => {
+    const { data, error } = await db.rpc('add_decor', { p_room: _roomId, p_kind: kind });
+    if (error) return App.showToast(App.errMsg(error, '설치 실패'), 'error');
+
+    _decorCache.push({ id: data.id, kind });
+    _renderBlueprint();
+    await App.loadProfile(); await App.refreshHeader();
+    App.showToast(`설치 완료! 잔액 ${data.balance.toLocaleString()}원`, 'success');
+    await openDecor();   // 상점의 '놓인 개수' 갱신
   };
 
   const showDetail = (b) => {
@@ -269,5 +337,6 @@ const Bookshelf = (() => {
     await openRoom(_roomId); await load();
   };
 
-  return { load, openRoom, openRoomForm, submitRoom, deleteRoom, openAddBook, submitAddBook };
+  return { load, openRoom, openRoomForm, submitRoom, deleteRoom, openAddBook, submitAddBook,
+           openDecor };
 })();

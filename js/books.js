@@ -51,7 +51,9 @@ const Books = (() => {
     const p = App.getProfile();
     if (!p) return false;
 
-    const enough = p.balance >= r.loan_deposit;
+    // 관리자는 잔액과 상관없이 대출/연장/방 추가가 가능합니다.
+    const isAdmin = p.role === 'admin';
+    const enough = isAdmin || p.balance >= r.loan_deposit;
     App.$('#loanDepositInfo').innerHTML = App.h`
       <div class="deposit-box ${enough ? '' : 'deposit-box-warn'}">
         <div class="deposit-row">

@@ -12,6 +12,11 @@
 -- ═══════════════════════════════════════════════════════════
 
 -- ── 0. 정리 (다시 실행할 때를 위해) ────────────────────────
+drop table if exists room_decor       cascade;
+drop table if exists decor_items       cascade;
+drop table if exists theme_unlocks    cascade;
+drop table if exists palettes         cascade;
+drop table if exists requests         cascade;
 drop table if exists events           cascade;
 drop table if exists notifications    cascade;
 drop table if exists bookshelf_books  cascade;
@@ -32,7 +37,7 @@ create type user_role   as enum ('pending','member','admin');
 create type loan_status as enum ('active','returned','overdue');
 create type txn_type    as enum (
   'join_bonus','return_bonus','overdue_fee','room_fee','admin_adjust',
-  'loan_deposit','deposit_refund','extend_fee'
+  'loan_deposit','deposit_refund','extend_fee','theme_fee','decor_fee'
 );
 
 
@@ -343,6 +348,8 @@ returns json language sql immutable as $$
 $$;
 
 -- 포인트 증감 (내부용). 잔액이 모자라면 예외를 던져 거래 전체가 취소됩니다.
+-- 단, 대상이 관리자면 잔액과 상관없이 모든 활동이 가능해야 하므로
+-- 마이너스 잔액을 허용한 채 예외 없이 진행합니다.
 create or replace function adjust_points(
   p_user uuid, p_amount int, p_type txn_type,
   p_desc text, p_loan bigint default null, p_clamp boolean default false
@@ -351,11 +358,13 @@ language plpgsql
 security definer set search_path = public
 as $$
 declare
-  v_balance int;
-  v_amount  int := p_amount;
+  v_balance  int;
+  v_is_admin boolean;
+  v_amount   int := p_amount;
 begin
   -- 행 잠금: 동시에 두 요청이 와도 잔액이 꼬이지 않습니다.
-  select balance into v_balance from profiles where id = p_user for update;
+  select balance, (role = 'admin') into v_balance, v_is_admin
+    from profiles where id = p_user for update;
   if not found then
     raise exception '사용자를 찾을 수 없습니다.';
   end if;
@@ -363,10 +372,11 @@ begin
   if v_balance + v_amount < 0 then
     if p_clamp then
       v_amount  := -v_balance;   -- 있는 만큼만 차감 (연체료용)
-    else
+    elsif not v_is_admin then
       raise exception '잔액이 부족합니다. (현재 %원, 필요 %원)', v_balance, abs(p_amount)
         using errcode = 'P0001';
     end if;
+    -- 관리자는 예외 없이 그대로 진행 (마이너스 잔액 허용)
   end if;
 
   v_balance := v_balance + v_amount;
@@ -807,6 +817,196 @@ as $$
 $$;
 
 
+-- ═══════════════════════════════════════════════════════════
+--  12. 요청사항(문의) — 회원이 관리자에게 문의를 남기고
+--      관리자가 앱 안에서 답변합니다.
+-- ═══════════════════════════════════════════════════════════
+create table if not exists requests (
+  id         bigserial primary key,
+  user_id    uuid not null references profiles(id) on delete cascade,
+  content    text not null check (char_length(content) between 1 and 1000),
+  status     text not null default 'open' check (status in ('open','answered')),
+  reply      text,
+  replied_by uuid references profiles(id) on delete set null,
+  replied_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists requests_user_idx   on requests (user_id, created_at desc);
+create index if not exists requests_status_idx on requests (status, created_at desc);
+
+alter table requests enable row level security;
+create policy "본인 요청 조회" on requests
+  for select using (user_id = auth.uid() or is_admin());
+
+-- 문의 등록 (본인만, 승인된 회원만)
+create or replace function submit_request(p_content text)
+returns json
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_uid     uuid := auth.uid();
+  v_content text := trim(coalesce(p_content, ''));
+  v_id      bigint;
+begin
+  if not is_member() then raise exception '승인된 회원만 이용할 수 있습니다.'; end if;
+  if v_content = '' then raise exception '내용을 입력해주세요.'; end if;
+  if char_length(v_content) > 1000 then raise exception '내용이 너무 깁니다. (최대 1000자)'; end if;
+
+  insert into requests (user_id, content) values (v_uid, v_content) returning id into v_id;
+  return json_build_object('id', v_id);
+end;
+$$;
+
+-- 관리자 답변
+create or replace function admin_reply_request(p_request bigint, p_reply text)
+returns json
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_reply text := trim(coalesce(p_reply, ''));
+begin
+  if not is_admin() then raise exception '관리자 권한이 필요합니다.'; end if;
+  if v_reply = '' then raise exception '답변 내용을 입력해주세요.'; end if;
+  if not exists (select 1 from requests where id = p_request) then
+    raise exception '요청을 찾을 수 없습니다.';
+  end if;
+
+  update requests
+     set reply = v_reply, replied_by = auth.uid(), replied_at = now(), status = 'answered'
+   where id = p_request;
+
+  return json_build_object('ok', true);
+end;
+$$;
+
+
+-- ═══════════════════════════════════════════════════════════
+--  13. 코인 상점 — 색 테마 + 방 꾸미기
+--
+--  색상 값은 화면(js/themes.js)이 갖고, DB 는 존재·가격·분류·소유만
+--  관리합니다(장르 테이블과 같은 방식). 가격 판정은 반드시 서버가 합니다.
+-- ═══════════════════════════════════════════════════════════
+
+-- 팔레트 가격표
+create table palettes (
+  id       text primary key,
+  name     text not null,
+  category text not null check (category in ('vivid','pastel','mono')),
+  price    int  not null default 0 check (price >= 0),
+  sort     int  not null default 0
+);
+insert into palettes (id, name, category, price, sort) values
+  ('cobalt',    '코발트',    'vivid',  300, 10),
+  ('ruby',      '루비',      'vivid',  300, 20),
+  ('emerald',   '에메랄드',  'vivid',  300, 30),
+  ('violet',    '바이올렛',  'vivid',  300, 40),
+  ('tangerine', '탠저린',    'vivid',  300, 50),
+  ('lavender',  '라벤더',    'pastel', 200, 60),
+  ('mint',      '민트',      'pastel', 200, 70),
+  ('peach',     '피치',      'pastel', 200, 80),
+  ('sky',       '스카이',    'pastel', 200, 90),
+  ('rose',      '로즈',      'pastel', 200, 100),
+  ('charcoal',  '모노 차콜', 'mono',   100, 110),
+  ('sand',      '모노 샌드', 'mono',   100, 120);
+
+-- 테마 소유 기록
+create table theme_unlocks (
+  user_id     uuid not null references profiles(id) on delete cascade,
+  palette_id  text not null references palettes(id) on delete cascade,
+  unlocked_at timestamptz not null default now(),
+  primary key (user_id, palette_id)
+);
+
+-- 방 꾸미기 아이템 가격표
+create table decor_items (
+  kind  text primary key,
+  name  text not null,
+  emoji text not null default '',
+  price int  not null default 0 check (price >= 0),
+  sort  int  not null default 0
+);
+insert into decor_items (kind, name, emoji, price, sort) values
+  ('door',   '문',   '🚪', 50, 10),
+  ('window', '창문', '🪟', 40, 20),
+  ('plant',  '화분', '🪴', 30, 30),
+  ('frame',  '액자', '🖼️', 30, 40),
+  ('lamp',   '조명', '💡', 40, 50),
+  ('rug',    '러그', '🟫', 30, 60);
+
+-- 방에 놓인 데코
+create table room_decor (
+  id         bigserial primary key,
+  room_id    bigint not null references bookshelf_rooms(id) on delete cascade,
+  user_id    uuid   not null references profiles(id) on delete cascade,
+  kind       text   not null references decor_items(kind),
+  created_at timestamptz not null default now()
+);
+create index room_decor_room_idx on room_decor (room_id);
+
+alter table palettes      enable row level security;
+alter table theme_unlocks enable row level security;
+alter table decor_items   enable row level security;
+alter table room_decor    enable row level security;
+
+create policy "회원 팔레트 조회"    on palettes      for select using (is_member());
+create policy "본인 테마 조회"      on theme_unlocks for select using (user_id = auth.uid() or is_admin());
+create policy "회원 데코아이템 조회" on decor_items   for select using (is_member());
+create policy "본인 데코 조회"      on room_decor    for select using (user_id = auth.uid());
+create policy "본인 데코 삭제"      on room_decor    for delete using (user_id = auth.uid());
+
+-- 테마 구매 (가격은 palettes 가 판정)
+create or replace function unlock_theme(p_palette text)
+returns json
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_uid     uuid := auth.uid();
+  v_pal     palettes%rowtype;
+  v_balance int;
+begin
+  if not is_member() then raise exception '승인된 회원만 이용할 수 있습니다.'; end if;
+  select * into v_pal from palettes where id = p_palette;
+  if not found then raise exception '존재하지 않는 테마입니다.'; end if;
+  if exists (select 1 from theme_unlocks where user_id = v_uid and palette_id = p_palette) then
+    raise exception '이미 보유한 테마입니다.';
+  end if;
+
+  v_balance := adjust_points(v_uid, -v_pal.price, 'theme_fee', '테마 구매: ' || v_pal.name);
+  insert into theme_unlocks (user_id, palette_id) values (v_uid, p_palette);
+  return json_build_object('balance', v_balance, 'palette', p_palette);
+end;
+$$;
+
+-- 데코 구매(설치). 가격은 decor_items 가 판정. 본인 방에만.
+create or replace function add_decor(p_room bigint, p_kind text)
+returns json
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_uid     uuid := auth.uid();
+  v_item    decor_items%rowtype;
+  v_balance int;
+  v_id      bigint;
+begin
+  if not is_member() then raise exception '승인된 회원만 이용할 수 있습니다.'; end if;
+  if not exists (select 1 from bookshelf_rooms where id = p_room and user_id = v_uid) then
+    raise exception '내 방이 아닙니다.';
+  end if;
+  select * into v_item from decor_items where kind = p_kind;
+  if not found then raise exception '존재하지 않는 아이템입니다.'; end if;
+
+  v_balance := adjust_points(v_uid, -v_item.price, 'decor_fee', '방 꾸미기: ' || v_item.name);
+  insert into room_decor (room_id, user_id, kind) values (p_room, v_uid, p_kind)
+  returning id into v_id;
+  return json_build_object('balance', v_balance, 'id', v_id, 'kind', p_kind);
+end;
+$$;
+
+
 -- ── 권한 ───────────────────────────────────────────────────
 -- Supabase는 보통 이 권한을 자동으로 주지만, 명시해두면 어떤 환경에서도 동작합니다.
 -- 실제 접근 제한은 위의 RLS 정책이 담당합니다. (권한 = 문을 여는 것,
@@ -834,11 +1034,20 @@ revoke insert on bookshelf_rooms from authenticated;
 revoke insert, delete on notifications from authenticated;
 -- 🔒 이벤트: 기록(insert)만 RLS로 허용. 수정/삭제 금지, 조회는 관리자만(RLS).
 revoke update, delete on events from authenticated;
+-- 🔒 요청사항: 직접 쓰기 금지. 등록은 submit_request, 답변은 admin_reply_request 로만.
+revoke insert, update, delete on requests from authenticated;
+-- 🔒 상점: 가격표는 읽기 전용, 소유/설치는 함수로만. 데코 삭제(회수)는 본인 것만 허용.
+revoke insert, update, delete on palettes      from authenticated;
+revoke insert, update, delete on theme_unlocks from authenticated;
+revoke insert, update, delete on decor_items   from authenticated;
+revoke insert, update on room_decor from authenticated;
 
 grant execute on function create_loan, return_loan, extend_loan, create_room,
                           export_my_data, delete_my_account, app_config, app_config_all,
                           is_admin, is_member, log_event,
-                          approve_member, admin_adjust_points
+                          approve_member, admin_adjust_points,
+                          submit_request, admin_reply_request,
+                          unlock_theme, add_decor
   to authenticated;
 
 -- 내부 함수는 사용자가 직접 못 부르게 차단.

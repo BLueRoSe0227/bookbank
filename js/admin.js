@@ -6,32 +6,47 @@ const Admin = (() => {
 
   const load = async () => switchTab(_tab);
 
-  /* ── 승인 대기 배지 (PM2) ──────────────────────────────────
-     관리자가 관리 화면을 열어보지 않으면 신규 가입자가 무기한 대기하게 됩니다.
-     하단 탭바의 '관리' 아이콘과 '승인 대기' 탭에 건수를 띄워 눈에 띄게 합니다. */
-  const refreshPendingBadge = (count) => {
+  /* ── 처리 대기 배지 (PM2) ──────────────────────────────────
+     관리자가 관리 화면을 열어보지 않으면 신규 가입자·문의가 방치됩니다.
+     하단 탭바의 '관리' 아이콘엔 (승인대기 + 새 문의) 합계를,
+     각 탭엔 정확한 건수를 띄워 눈에 띄게 합니다. */
+  let _pendCount = 0, _reqCount = 0;
+
+  const _setBadge = (hostSel, cls, count, label) => {
     const n = Number(count) || 0;
-    [['#adminNavItem', '.nav-badge'], ['#adminTabPending', '.tab-badge']].forEach(([host, cls]) => {
-      const parent = App.$(host);
-      if (!parent) return;
-      let badge = parent.querySelector(cls);
-      if (!n) { badge?.remove(); return; }
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = cls.slice(1);
-        parent.appendChild(badge);
-      }
-      badge.textContent = n > 99 ? '99+' : String(n);
-      badge.setAttribute('aria-label', `승인 대기 ${n}명`);
-    });
+    const parent = App.$(hostSel);
+    if (!parent) return;
+    let badge = parent.querySelector(cls);
+    if (!n) { badge?.remove(); return; }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = cls.slice(1);
+      parent.appendChild(badge);
+    }
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.setAttribute('aria-label', `${label} ${n}건`);
   };
+
+  const _renderBadges = () => {
+    _setBadge('#adminNavItem',      '.nav-badge', _pendCount + _reqCount, '처리 대기');
+    _setBadge('#adminTabPending',   '.tab-badge', _pendCount, '승인 대기');
+    _setBadge('#adminTabRequests',  '.tab-badge', _reqCount,  '새 문의');
+  };
+
+  // 승인 대기 건수만 갱신 (다른 모듈과의 호환을 위해 이름 유지)
+  const refreshPendingBadge = (count) => { _pendCount = Number(count) || 0; _renderBadges(); };
+  const refreshRequestBadge = (count) => { _reqCount  = Number(count) || 0; _renderBadges(); };
 
   /* 관리자로 로그인했을 때 화면 진입 없이도 건수를 미리 세어둡니다. */
   const checkPending = async () => {
     if (App.getProfile()?.role !== 'admin') return;
-    const { count } = await db.from('profiles')
-      .select('*', { count: 'exact', head: true }).eq('role', 'pending');
-    refreshPendingBadge(count ?? 0);
+    const [pend, reqs] = await Promise.all([
+      db.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'pending'),
+      db.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+    ]);
+    _pendCount = pend.count ?? 0;
+    _reqCount  = reqs.count ?? 0;
+    _renderBadges();
   };
 
   // 두 번째 인자(누른 버튼)는 events.js 가 넘겨주지만 여기선 쓰지 않습니다.
@@ -44,10 +59,12 @@ const Admin = (() => {
     });
     const el = App.$('#adminContent');
     el.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
-    if (tab === 'pending') return _pending(el);
-    if (tab === 'members') return _members(el);
-    if (tab === 'loans')   return _loans(el);
-    if (tab === 'stats')   return _stats(el);
+    if (tab === 'pending')  return _pending(el);
+    if (tab === 'members')  return _members(el);
+    if (tab === 'loans')    return _loans(el);
+    if (tab === 'requests') return _requests(el);
+    if (tab === 'activity') return _activity(el);
+    if (tab === 'stats')    return _stats(el);
   };
 
   /* ── 승인 대기 ── */
@@ -170,6 +187,95 @@ const Admin = (() => {
     }).join('');
   };
 
+  /* ── 요청사항(문의) ── */
+  let _reqCache = [];   // 답변 모달이 원문을 다시 찾을 수 있도록 마지막 목록을 보관
+
+  const _requests = async (el) => {
+    // requests 는 profiles 로의 FK 가 둘(user_id·replied_by)이라 임베드가 모호합니다.
+    // 문의한 사람(user_id) 쪽으로 명시합니다.
+    const { data, error } = await db.from('requests')
+      .select('id,content,status,reply,replied_at,created_at,profiles!user_id(nickname)')
+      .order('created_at', { ascending: false }).limit(100);
+
+    if (error) { el.innerHTML = App.emptyState('⚠️', '요청사항을 불러오지 못했습니다. 005 마이그레이션이 적용됐는지 확인해주세요.'); return; }
+
+    _reqCache = data;
+    refreshRequestBadge(data.filter(r => r.status === 'open').length);
+
+    if (!data.length) { el.innerHTML = App.emptyState('📮', '아직 접수된 문의가 없습니다.'); return; }
+
+    el.innerHTML = data.map(r => {
+      const answered = r.status === 'answered';
+      const nick = r.profiles?.nickname ?? '(탈퇴한 회원)';
+      return App.h`
+        <div class="request-card">
+          <div class="request-head">
+            <b>${nick}</b>
+            <span class="badge badge-${App.raw(answered ? 'ok' : 'warn')}">${answered ? '답변 완료' : '미답변'}</span>
+          </div>
+          <div class="request-meta">${App.fmtDate(r.created_at)} 접수</div>
+          <div class="request-body">${r.content}</div>
+          ${answered ? App.h`
+            <div class="request-reply">
+              <span class="request-reply-label">답변</span>${r.reply}
+            </div>` : App.raw('')}
+          <div class="admin-row-actions" style="margin-top:10px">
+            <button class="btn btn-sm ${App.raw(answered ? 'btn-ghost' : 'btn-primary')}"
+                    data-reply="${r.id}">
+              ${answered ? '답변 수정' : '답변하기'}
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+    el.querySelectorAll('[data-reply]').forEach(b =>
+      b.addEventListener('click', () => _openReply(Number(b.dataset.reply))));
+  };
+
+  const _openReply = (id) => {
+    const r = _reqCache.find(x => x.id === id);
+    if (!r) return;
+    App.$('#replyRequestId').value = id;
+    App.$('#replyUserNick').textContent = r.profiles?.nickname ?? '(탈퇴한 회원)';
+    App.$('#replyQuote').textContent = r.content;
+    App.$('#replyContent').value = r.reply || '';
+    App.openModal('replyModal');
+  };
+
+  const submitReply = async () => {
+    App.clearErrors('#replyModal');
+    const id    = App.$('#replyRequestId').value;
+    const reply = App.$('#replyContent').value.trim();
+    if (!reply) return App.fieldError('#replyContent', '답변 내용을 입력해주세요.');
+
+    const { error } = await db.rpc('admin_reply_request', { p_request: Number(id), p_reply: reply });
+    if (error) return App.showToast(App.errMsg(error, '답변 등록 실패'), 'error');
+    App.closeModal('replyModal');
+    App.showToast('답변을 등록했습니다.', 'success');
+    await switchTab('requests');
+  };
+
+  /* ── 활동이력 ── */
+  const _activity = async (el) => {
+    const { data, error } = await db.from('events')
+      .select('type,meta,created_at,profiles(nickname)')
+      .order('created_at', { ascending: false }).limit(100);
+
+    if (error) { el.innerHTML = App.emptyState('⚠️', '활동이력을 불러오지 못했습니다.'); return; }
+    if (!data.length) { el.innerHTML = App.emptyState('📭', '아직 기록된 활동이 없습니다.'); return; }
+
+    el.innerHTML = data.map(e => {
+      const nick = e.profiles?.nickname ?? '(탈퇴한 회원)';
+      return App.h`
+        <div class="admin-row">
+          <div class="admin-row-info">
+            <b>${nick}</b>
+            <span class="admin-row-sub">${EVENT_NAMES[e.type] || e.type} · ${App.fmtDate(e.created_at)}</span>
+          </div>
+        </div>`;
+    }).join('');
+  };
+
   /* ── 통계 (PM6) + 연체 처리 감시 (PM3) ── */
   const EVENT_NAMES = {
     loan_create: '대출 신청', loan_return: '반납', loan_extend: '연장',
@@ -254,5 +360,5 @@ const Admin = (() => {
     }
   };
 
-  return { load, switchTab, submitAdjust, refreshPendingBadge, checkPending };
+  return { load, switchTab, submitAdjust, submitReply, refreshPendingBadge, checkPending };
 })();

@@ -31,6 +31,7 @@
     on('[data-form="reset"]',    'submit', Auth.submitNewPassword);
     on('[data-form="nickname"]', 'submit', (e) => { e.preventDefault(); Settings.saveNickname(); });
     on('[data-form="password"]', 'submit', (e) => { e.preventDefault(); Settings.changePassword(); });
+    on('[data-form="request"]',  'submit', Settings.submitRequest);
     App.$('#registerForm')?.addEventListener('submit', Books.submitLoan);
 
     /* ── 모달 열기/닫기 ────────────────────────────────── */
@@ -74,10 +75,12 @@
       'export':         () => Settings.exportData(),
       'delete-account': () => Settings.deleteAccount(),
       'submit-adjust':  () => Admin.submitAdjust(),
+      'submit-reply':   () => Admin.submitReply(),
       'submit-room':    () => Bookshelf.submitRoom(),
       'delete-room':    () => Bookshelf.deleteRoom(),
       'open-addbook':   () => Bookshelf.openAddBook(),
       'submit-addbook': () => Bookshelf.submitAddBook(),
+      'open-decor':     () => Bookshelf.openDecor(),
     };
     on('[data-action]', 'click', (e) => actions[e.currentTarget.dataset.action]?.());
 

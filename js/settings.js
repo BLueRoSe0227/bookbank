@@ -29,6 +29,50 @@ const Settings = (() => {
         <span class="rule-name">${n}</span>
         <span class="rule-value">${v}</span>
       </div>`).join('');
+
+    await loadMyRequests();
+    await Themes.load();
+  };
+
+  /* ── 문의하기 ── */
+  const submitRequest = async (e) => {
+    e?.preventDefault();
+    App.clearErrors('[data-form="request"]');
+    const content = App.$('#requestContent').value.trim();
+    if (!content) return App.fieldError('#requestContent', '문의 내용을 입력해주세요.');
+
+    const { error } = await db.rpc('submit_request', { p_content: content });
+    if (error) return App.showToast(App.errMsg(error, '문의 전송 실패'), 'error');
+
+    App.$('#requestContent').value = '';
+    App.showToast('문의를 보냈습니다. 관리자 답변을 기다려주세요.', 'success');
+    await loadMyRequests();
+  };
+
+  const loadMyRequests = async () => {
+    const box = App.$('#myRequests');
+    if (!box) return;
+    const { data, error } = await db.from('requests')
+      .select('id,content,status,reply,replied_at,created_at')
+      .order('created_at', { ascending: false }).limit(20);
+
+    if (error || !data?.length) { box.innerHTML = ''; return; }
+
+    box.innerHTML = data.map(r => {
+      const answered = r.status === 'answered';
+      return App.h`
+        <div class="request-card">
+          <div class="request-head">
+            <span class="request-meta">${App.fmtDate(r.created_at)} 문의</span>
+            <span class="badge badge-${App.raw(answered ? 'ok' : 'warn')}">${answered ? '답변 완료' : '답변 대기'}</span>
+          </div>
+          <div class="request-body">${r.content}</div>
+          ${answered ? App.h`
+            <div class="request-reply">
+              <span class="request-reply-label">관리자 답변</span>${r.reply}
+            </div>` : App.raw('')}
+        </div>`;
+    }).join('');
   };
 
   /* ── 닉네임 변경 ── */
@@ -105,5 +149,6 @@ const Settings = (() => {
     setTimeout(() => location.reload(), 1500);
   };
 
-  return { load, saveNickname, changePassword, exportData, openDeleteModal, deleteAccount };
+  return { load, saveNickname, changePassword, exportData, openDeleteModal, deleteAccount,
+           submitRequest };
 })();

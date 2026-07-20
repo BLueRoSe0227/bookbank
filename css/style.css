@@ -271,6 +271,18 @@ p { margin: 0; }
   display: block; margin-bottom: 6px;
   font-size: 13px; font-weight: 600; color: var(--text-sub);
 }
+
+/* 체크박스 한 줄 (자동 로그인 등) */
+.checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: -2px 0 14px;
+  font-size: 13px; color: var(--text-sub); cursor: pointer;
+  user-select: none;
+}
+.checkbox-row input[type="checkbox"] {
+  width: 18px; height: 18px; flex-shrink: 0;
+  accent-color: var(--primary); cursor: pointer;
+}
 .field input, .field textarea, .field select {
   width: 100%;
   min-height: var(--touch);
@@ -500,35 +512,139 @@ p { margin: 0; }
 .badge-neutral { background: var(--bg-sunken);  color: var(--text-sub); }
 
 /* ── 통장 ────────────────────────────────────────────────── */
-.passbook-header {
-  background: var(--primary); color: var(--text-on-primary);
-  border-radius: var(--radius);
+/* ── 통장: 은행 카드 ─────────────────────────────────────── */
+.bankcard {
+  position: relative;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: var(--text-on-primary);
+  border-radius: var(--radius-lg);
   padding: 20px;
   margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
-.passbook-owner   { font-size: 13px; opacity: .9; }
-.passbook-balance { font-size: 30px; font-weight: 700; margin-top: 4px; }
+/* 카드 광택 */
+.bankcard::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(120% 80% at 85% 0%, rgba(255,255,255,.18), transparent 60%);
+  pointer-events: none;
+}
+.bankcard-row { display: flex; align-items: center; justify-content: space-between; }
+.bankcard-brand { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+.bankcard-chip {
+  width: 34px; height: 24px; border-radius: 5px;
+  background: linear-gradient(135deg, #F4D48A, #C9A24B);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+}
+.bankcard-label { font-size: 12px; opacity: .85; margin-top: 16px; }
+.bankcard-balance { font-size: 32px; font-weight: 800; margin-top: 2px; letter-spacing: -.5px; }
+.bankcard-foot { margin-top: 18px; font-size: 12px; }
+.bankcard-owner { font-weight: 700; }
+.bankcard-no { opacity: .8; letter-spacing: 1px; }
 
-.table-wrap {
+/* ── 통장: 이번 달 요약 ──────────────────────────────────── */
+.ledger-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.ledger-sum-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow-x: auto;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
 }
-.passbook-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.passbook-table th {
-  background: var(--bg-sunken);
-  padding: 10px 12px; text-align: left;
+.ledger-sum-label { font-size: 12px; color: var(--text-muted); }
+.ledger-sum-value { font-size: 18px; font-weight: 800; }
+
+/* ── 통장: 용돈기입장 ────────────────────────────────────── */
+.ledger {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.ledger-title {
+  font-size: 14px; font-weight: 800; color: var(--text-sub);
+  padding: 12px 14px;
+  background:
+    repeating-linear-gradient(var(--bg-sunken), var(--bg-sunken) 27px, var(--border) 27px, var(--border) 28px);
+  border-bottom: 2px solid var(--border-strong);
+}
+.table-wrap { overflow-x: auto; }
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ledger-table caption { text-align: left; }
+.ledger-table th {
+  padding: 9px 12px; text-align: left;
   font-weight: 700; color: var(--text-sub);
+  background: var(--bg-sunken);
   white-space: nowrap;
+  border-bottom: 1px solid var(--border-strong);
 }
-.passbook-table td {
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
+.ledger-table th.num { text-align: right; }
+/* 줄 쳐진 공책 느낌: 각 행에 밑줄, 세로 칸선 */
+.ledger-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
 }
-.passbook-table .num { text-align: right; }
+.ledger-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ledger-date { color: var(--text-muted); white-space: nowrap; }
+.ledger-desc { font-weight: 600; }
+.ldg-date { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ldg-desc { font-weight: 600; }
+.ldg-sub { display: block; font-size: 11px; font-weight: 400; color: var(--text-muted); margin-top: 2px; }
+.ldg-in  { color: var(--success); font-weight: 700; }
+.ldg-out { color: var(--danger);  font-weight: 700; }
+.ldg-bal { color: var(--text-sub); font-weight: 700; }
+/* 세로 칸선 (들어옴·나감·남은돈 구분) */
+.ledger-table td.ldg-in, .ledger-table th:nth-child(3) { border-left: 1px solid var(--border); }
+.ledger-table td.ldg-bal, .ledger-table th:nth-child(5) { border-left: 1px solid var(--border); }
+
 .amount-plus  { color: var(--success); font-weight: 700; }
 .amount-minus { color: var(--danger);  font-weight: 700; }
+
+/* ── 테마 색상 갤러리 ────────────────────────────────────── */
+.theme-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 14px; }
+.seg {
+  display: inline-flex;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.seg-btn {
+  border: none; background: none; cursor: pointer;
+  padding: 6px 12px; min-height: 32px;
+  font-size: 12px; font-weight: 700; color: var(--text-muted);
+  border-radius: 6px;
+  transition: background var(--transition), color var(--transition);
+}
+.seg-btn.active { background: var(--bg-card); color: var(--primary); box-shadow: var(--shadow); }
+
+.palette-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.palette-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.palette-card.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.palette-swatch {
+  position: relative;
+  height: 56px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+}
+.palette-dot { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.palette-lock { position: absolute; top: 4px; right: 6px; font-size: 12px; }
+.palette-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.palette-name { font-size: 13px; font-weight: 700; }
+.palette-cat  { font-size: 11px; color: var(--text-muted); }
+.palette-card .btn { width: 100%; }
 
 /* ── 설정: 정보 목록 ─────────────────────────────────────── */
 .info-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
@@ -737,6 +853,35 @@ p { margin: 0; }
 .admin-row-info { min-width: 0; flex: 1; font-size: 14px; font-weight: 600; }
 .admin-row-sub  { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
 .admin-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ── 요청사항(문의) ──────────────────────────────────────── */
+.request-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.request-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.request-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 6px;
+}
+.request-meta { font-size: 12px; color: var(--text-muted); }
+.request-body { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+.request-reply {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--primary-bg);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font-size: 13px; white-space: pre-wrap; word-break: break-word;
+}
+.request-reply-label { font-weight: 700; color: var(--primary); display: block; margin-bottom: 4px; }
+.request-quote {
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px; margin-bottom: 14px;
+  font-size: 13px; white-space: pre-wrap; word-break: break-word;
+}
 
 /* ═══════════════════════════════════════════════════════════
    [전체 개선 반영] 아래는 이번 리뷰 30항목 대응으로 추가된 스타일

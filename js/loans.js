@@ -33,7 +33,7 @@ const Loans = (() => {
     App.$('#statCapacity').textContent = `${capacity}권`;
 
     App.$('#passbookBalance').textContent = `${p.balance.toLocaleString()}원`;
-    App.$('#passbookOwner').textContent   = `${p.nickname}님의 독서 통장`;
+    App.$('#passbookOwner').textContent   = `${p.nickname}님`;
 
     // 반납 임박 (3일 이내) — [D5] 로컬 기준 날짜
     const { data: urgent } = await db
@@ -245,35 +245,55 @@ const Loans = (() => {
     await loadList('active');
   };
 
-  /* ── 통장 내역 ── */
+  /* ── 통장 내역 (은행 카드 + 용돈기입장) ── */
+  const TXN_NAMES = {
+    join_bonus: '가입 보너스', return_bonus: '반납 보너스', overdue_fee: '연체 수수료',
+    room_fee: '서재 방 추가', admin_adjust: '관리자 조정',
+    loan_deposit: '대출 보증금', deposit_refund: '보증금 환급', extend_fee: '대출 연장',
+    theme_fee: '테마 구매', decor_fee: '방 꾸미기',
+  };
+
   const loadTransactions = async () => {
     const p = App.getProfile();
     App.$('#passbookBalance').textContent = `${p.balance.toLocaleString()}원`;
-    App.$('#passbookOwner').textContent   = `${p.nickname}님의 독서 통장`;
+    App.$('#passbookOwner').textContent   = `${p.nickname}님`;
 
     const { data } = await db.from('transactions')
       .select('type,amount,balance,description,created_at')
       .eq('user_id', p.id).order('created_at', { ascending: false }).limit(100);
 
-    const names = {
-      join_bonus: '가입 보너스', return_bonus: '반납 보너스', overdue_fee: '연체 수수료',
-      room_fee: '서재 방 추가', admin_adjust: '관리자 조정',
-      loan_deposit: '대출 보증금', deposit_refund: '보증금 환급', extend_fee: '대출 연장',
-    };
     const tbody = App.$('#passbookBody');
     if (!data?.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">거래 내역이 없습니다.</td></tr>';
+      App.$('#passbookIn').textContent  = '+0';
+      App.$('#passbookOut').textContent = '-0';
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-cell">거래 내역이 없습니다.</td></tr>';
       return;
     }
-    tbody.innerHTML = data.map(t => App.h`
-      <tr>
-        <td class="td-date">${App.fmtDate(t.created_at)}</td>
-        <td>${names[t.type] || t.type}<br><span class="td-desc">${t.description || ''}</span></td>
-        <td class="td-amount ${App.raw(t.amount >= 0 ? 'amount-plus' : 'amount-minus')}">
-          ${(t.amount >= 0 ? '+' : '') + t.amount.toLocaleString()}
-        </td>
-        <td class="td-balance">${t.balance.toLocaleString()}</td>
-      </tr>`).join('');
+
+    // 이번 달 들어온/나간 합계 (최근 100건 기준)
+    const now = new Date();
+    let inSum = 0, outSum = 0;
+    data.forEach(t => {
+      const d = new Date(t.created_at);
+      if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
+        if (t.amount >= 0) inSum += t.amount; else outSum += t.amount;
+      }
+    });
+    App.$('#passbookIn').textContent  = `+${inSum.toLocaleString()}`;
+    App.$('#passbookOut').textContent = outSum.toLocaleString();   // 이미 음수
+
+    tbody.innerHTML = data.map(t => {
+      const plus = t.amount >= 0;
+      return App.h`
+        <tr>
+          <td class="ldg-date">${App.fmtDate(t.created_at)}</td>
+          <td class="ldg-desc">${TXN_NAMES[t.type] || t.type}${
+            t.description ? App.raw(`<span class="ldg-sub">${App.escapeHtml(t.description)}</span>`) : App.raw('')}</td>
+          <td class="ldg-in num">${plus ? '+' + t.amount.toLocaleString() : ''}</td>
+          <td class="ldg-out num">${!plus ? t.amount.toLocaleString() : ''}</td>
+          <td class="ldg-bal num">${t.balance.toLocaleString()}</td>
+        </tr>`;
+    }).join('');
   };
 
   return { loadSummary, loadList, openReturnModal, setRating, submitReturn, extend, loadTransactions };
